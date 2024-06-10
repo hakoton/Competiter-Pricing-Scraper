@@ -58,3 +58,21 @@ COMMAND_MAP:dict = {
 2. add "COMMAND_MAP" to invoke your module(doCrawl method).
      - key parameter: same name as your crawl moduke as string. that will be specified as a runtime parameter（payload） of lambda.
      - value parameter: your crawler moduke name.
+
+### S3 file naming conventions
+
+There are no rules regarding the format of file contents (Json format is recommended).
+On the other hand, there are rules regarding file naming conventions, 
+and if you do not follow them, your Register module will not be able to receive the correct byte stream.
+
+the rule is very simple that is
+1. In the first part of the file name, add an identifier that identifies the target site and product, separated by a hyphen.
+2. In the second part of the file name, specify the save date and time separated by a hyphen.
+3. Connect these two pieces of information with an underscore to create the file name.
+
+In case of crawling seal-product pricing list from printpac(this is a raksul competitor in japan region).
+S3 file name will be 
+> printpac-seals-pricing_2024-06-10-120030.json
+
+## Register module
+
