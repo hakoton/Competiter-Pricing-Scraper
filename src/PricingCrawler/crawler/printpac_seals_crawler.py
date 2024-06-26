@@ -1,48 +1,23 @@
+# -*- coding: utf-8 -*-
+import datetime
+import math
 import requests
 from requests import Response
 import json
 from typing import List, Union, Any, Dict
 from bs4 import BeautifulSoup, NavigableString, Tag, ResultSet
 import time
-from utils import get_webpage, get_first_value_by_attr
 
-# 印刷用紙IDと対応する用紙IDのマッピング
-paper_id_map: Dict[str, List[int]] = {
-    """
-    key: print_paper
-    value: paper_id
-    """
-    "1": [152],
-    "2": [154],
-    "3": [153],
-    "4": [157],
-    "5": [155],
-    "6": [158],
-    "7": [156],
-    "8": [173],
-    "9": [147],
-    "10": [148],
-    "11": [159],
-    "12": [174],
-    "13": [435, 419, 432, 433, 434],
-    "14": [175, 176, 177, 178, 179],
-    "15": [417, 418],
-    "16": [194],
-    "17": [192],
-    "18": [193],
-    "19": [415, 416],
-    "21": [472],
-    "23": [473],
-    "24": [471],
-    "25": [474],
-    "26": [470],
-}
+from shared.constants import PID_TABLE
+from aws.s3 import put_s3
+from data_convert.convert_bigquery_format import ProducCategory, convert_for_bigquery
+from .utils import get_webpage, get_first_value_by_attr
 
 # 用紙の種類
 laminate_group: List[int] = [1, 2, 3, 4, 6, 7, 8]
 whitesheet_group: List[int] = [11, 14, 15, 19]
 whitesheet_laminate_group: List[int] = [8]
-tax_flag: str = "true"
+tax_flag: str = "false"
 
 
 def get_all_paper_size_el(soup: BeautifulSoup) -> List[Tag]:
@@ -87,7 +62,7 @@ def extract_all_print_papers(html: BeautifulSoup) -> List[Dict[str, str]]:
     2つの主要なグループ:
     グループ1: カス上げなし
     グループ2: カス上げあり
-    結果の例: [{'print_paper_name': '', 'print_paper_id': ''}]
+    結果の例: [{'paper_name': '', 'paper_group_id': ''}]
     """
     result: List[Dict[str, str]] = []
 
@@ -105,42 +80,39 @@ def extract_all_print_papers(html: BeautifulSoup) -> List[Dict[str, str]]:
         input_element: Union[Tag, NavigableString, None] = item.find("input")
 
         if isinstance(input_element, Tag):
-            print_paper_name: str = get_first_value_by_attr(input_element, "data-name")
-            print_paper_id: str = get_first_value_by_attr(input_element, "value")
+            paper_name: str = get_first_value_by_attr(input_element, "data-name")
+            paper_group_id: str = get_first_value_by_attr(input_element, "value")
             obj: Dict[str, str] = {
-                "print_paper_name": print_paper_name,
-                "print_paper_id": print_paper_id,
+                "paper_name": paper_name,
+                "paper_group_id": paper_group_id,
             }
             result.append(obj)
 
     return result
 
 
-def has_laminate(print_paper: str) -> bool:
-    val: int = int(print_paper)
-    if val not in laminate_group:
+def in_laminate_group(paper_group_id: str) -> bool:
+    if int(paper_group_id) not in laminate_group:
         return False
     else:
         return True
 
 
-def has_whitesheet(print_paper: str) -> bool:
-    val: int = int(print_paper)
-    if val not in whitesheet_group:
+def in_whitesheet_group(paper_group_id: str) -> bool:
+    if int(paper_group_id) not in whitesheet_group:
         return False
     else:
         return True
 
 
-def has_whitesheet_laminate(print_paper: str) -> bool:
-    val: int = int(print_paper)
-    if val not in whitesheet_laminate_group:
+def in_whitesheet_laminate_group(paper_group_id: str) -> bool:
+    if int(paper_group_id) not in whitesheet_laminate_group:
         return False
     else:
         return True
 
 
-def get_paper_process_option(html: BeautifulSoup) -> Dict[str, str]:
+def get_all_paper_process_options(html: BeautifulSoup) -> Dict[str, str]:
     """
     {
         [key: paper_process_option_id]: paper_process_option_name
@@ -163,22 +135,28 @@ def get_paper_process_option(html: BeautifulSoup) -> Dict[str, str]:
     return obj
 
 
-def filter_paper_process_by_print_paper(print_paper: str) -> List[int]:
-    # デフォルトオプション: ラミネートなし
-    paper_process: List[int] = [1]
+def filter_pp_process_options_by_print_paper(paper_group_id: str) -> List[int]:
+    """
+    加工のオプション
+    デフォルトオプション: ラミネートなし
+    ロジックはprinpacウェブサイトのロジックに書かれている
+    https://www.printpac.co.jp/contents/lineup/seal/js/size.js?20240612164729
+    """
+    process_options: List[int] = [1]
 
-    if has_laminate(print_paper):
-        paper_process.append(2)
-        paper_process.append(3)
-    if has_whitesheet(print_paper):
-        paper_process.append(4)
-    if has_whitesheet_laminate(print_paper):
-        paper_process.append(5)
-    return paper_process
+    if in_laminate_group(paper_group_id):
+        process_options.append(2)  # 光沢グロスPPラミネート
+        process_options.append(3)  # マットPPラミネート
+    if in_whitesheet_group(paper_group_id):
+        process_options.append(4)  # 白版追加
+    if in_whitesheet_laminate_group(paper_group_id):
+        process_options.append(5)  # 光沢グロスPPラミネート＋白版追加
+    return process_options
 
 
-def get_paper_id_arr(print_paper: str) -> Union[List[int], None]:
-    return paper_id_map.get(print_paper)
+# paper_group内の1つ以上のpaper_id
+def get_paper_id_arr(paper_group_id: str) -> Union[List[int], None]:
+    return [e for e in PID_TABLE[int(paper_group_id)]]
 
 
 def generate_category_id(paper_process: int) -> int:
@@ -232,9 +210,10 @@ def create_all_combinations(
         "size_id": str,
         "paper_arr": str,
         "kakou": str,
-        "tax_flag": 'true',
+        "tax_flag": 'false',
         # 追加情報
-        "print_paper_name": str,
+        "paper_name": str,
+        "paper_group_id": str,
         "shape": str,
         "process": str,
     }[]
@@ -242,22 +221,25 @@ def create_all_combinations(
     combinations: List[Dict[str, Union[str, None]]] = []
     for size in sizes:
         for print_pp in print_papers:
-            possible_paper_process: List[int] = filter_paper_process_by_print_paper(print_pp["print_paper_id"])
+            possible_paper_process: List[int] = (
+                filter_pp_process_options_by_print_paper(print_pp["paper_group_id"])
+            )
             for process in possible_paper_process:
                 # 一部の印刷用紙には異なるカスタマイズオプションがある
-                print_paper_options = get_paper_id_arr(print_pp["print_paper_id"])
-                if print_paper_options is None:
+                paper_id_arr = get_paper_id_arr(print_pp["paper_group_id"])
+                if paper_id_arr is None:
                     continue
                 else:
-                    for option in print_paper_options:
+                    for paper_id in paper_id_arr:
                         obj: Dict[str, Union[str, None]] = {
                             "category_id": str(generate_category_id(process)),
                             "size_id": size["size_id"],
-                            "paper_arr": str(option),
+                            "paper_arr": str(paper_id),  # paper id
                             "kakou": str(process),
                             "tax_flag": tax_flag,
                             # クエリに必要な情報以外の詳細
-                            "print_paper_name": print_pp["print_paper_name"],
+                            "paper_name": print_pp["paper_name"],
+                            "paper_group_id": print_pp["paper_group_id"],
                             "shape": size["size"],
                             "process": paper_process_option.get(str(process)),
                         }
@@ -265,11 +247,11 @@ def create_all_combinations(
 
     return combinations
 
+
 def crawl_label_seal_prices(
-    formatter=lambda x: x,
+    # formatter=lambda x: x,
     save_combinations: bool = False,
-    save_crawl_data: bool = False,
-    interval_s: float = 0.2,
+    interval_s: float = 0.1,
 ) -> Dict:
     """
     ラベルとステッカーの価格をクロール
@@ -285,35 +267,82 @@ def crawl_label_seal_prices(
 
     # 2. 印刷用紙（シールの紙質）を取得
     print_papers: List[Dict[str, str]] = extract_all_print_papers(html)
-    paper_process_option: Dict[str, str] = get_paper_process_option(html)
-    combinations: List[Dict[str, Union[str, None]]] = create_all_combinations(sizes, print_papers, paper_process_option)
+    paper_process_option: Dict[str, str] = get_all_paper_process_options(html)
+    combinations: List[Dict[str, Union[str, None]]] = create_all_combinations(
+        sizes, print_papers, paper_process_option
+    )
 
     if save_combinations == True:
         with open("label_n_sticker_combination.txt", "w") as file:
-            json.dump(combinations, file, indent=4)
+            json.dump(combinations, file, indent=4, ensure_ascii=False)
 
+    """
+        res_data: {
+            [unit] : {
+                [eigyo]: Dict[str,Union[str,int]]
+            }
+        }
+    """
     count = [0]
-    res_data: Dict[str, Any] = {}
+    idx = [0]
+    result = {}
+
+    number_of_combinations = len(combinations)
+    ten_pct = math.ceil(number_of_combinations / 10)
+    print("[Number of Combinations] ", number_of_combinations)
 
     for item in combinations:
-        r: Response = get_price(item, count)
-        if r is None:
-            print("No data returned")
-        else:
-            res_data = r.json()["tbody"]["body"]
+        res_data: Dict[str, Dict[str, Any]] = {}
+        if count[0] == (number_of_combinations - 1):
+            print("Progress: 100%")
+        elif count[0] % ten_pct == 0:
+            print("Progress: {}%".format((count[0] * 10 / ten_pct)))
 
-            for unit in res_data:
-                for eigyo in res_data[unit]:
-                    res_data[unit][eigyo]["SHAPE"] = item["shape"]
-                    res_data[unit][eigyo]["PRINT"] = item["print_paper_name"]
-                    res_data[unit][eigyo]["KAKOU"] = item["process"]
-                    res_data[unit][eigyo]["UNIT"] = unit
-                    res_data[unit][eigyo]["eigyo"] = eigyo
-            time.sleep(interval_s)
+        try:
+            r: Response = get_price(item, count)
+            if r is None:
+                print("No data returned")
+            else:
+                res_data = r.json()["tbody"]["body"]
 
-    if save_crawl_data == True:
-        with open("label_seal_crawl_result.txt", "w") as file:
-            json.dump(res_data, file, indent=4)
+                for unit in res_data:
+                    for eigyo in res_data[unit]:
+                        res_data[unit][eigyo]["SHAPE"] = item["shape"]
+                        res_data[unit][eigyo]["PRINT"] = item["paper_name"]
+                        res_data[unit][eigyo]["KAKOU"] = item["process"]
+                        res_data[unit][eigyo]["PAPER_GROUP_ID"] = item["paper_group_id"]
+                        res_data[unit][eigyo]["PAPER_ID"] = item["paper_arr"]
 
-    print("Success rate: ", count[0] * 100 / len(combinations))
-    return formatter(res_data)
+                        res_data[unit][eigyo]["UNIT"] = unit
+                        res_data[unit][eigyo]["eigyo"] = eigyo
+
+                result.update(convert_for_bigquery(ProducCategory.SEAL, res_data, idx))
+                time.sleep(interval_s)
+        except Exception as e:
+            print("Error when requesting item with info: ", item, e)
+
+    print("Success rate: {}%".format(round(count[0] * 100 / number_of_combinations, 2)))
+    return result
+
+
+def doCrawl(s3_bucketname: str, s3_subdir: str) -> bool:
+    try:
+        converted_data = crawl_label_seal_prices()
+
+        prefix = "printpac_label_seal_"
+        key = (
+            s3_subdir
+            + prefix
+            + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+            + ".json"
+        )
+        with open(
+            prefix + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + ".json",
+            "w",
+        ) as file:
+            json.dump(converted_data, file, indent=4, ensure_ascii=False)
+        put_s3(converted_data, s3_bucketname, key)
+        return True
+    except Exception as e:
+        print("Error - ", e)
+        return False
