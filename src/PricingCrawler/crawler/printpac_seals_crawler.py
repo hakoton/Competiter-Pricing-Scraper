@@ -329,7 +329,8 @@ def doCrawl(s3_bucketname: str, s3_subdir: str) -> bool:
     try:
         converted_data = crawl_label_seal_prices()
 
-        prefix = "printpac_label_seal_"
+        # 　ファイルの名：<相手-製品> _ <作成時間>.json
+        prefix = "printpac-label-seal_"
         key = (
             s3_subdir
             + prefix
