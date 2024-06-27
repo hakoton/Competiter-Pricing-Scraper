@@ -1,8 +1,5 @@
 import json
-import requests
-import urllib
 import boto3
-import datetime
 
 
 def put_s3(output_data, bucket, key):
