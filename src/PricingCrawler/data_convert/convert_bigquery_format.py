@@ -1,4 +1,4 @@
-from typing import Match, Union, Dict, Any
+from typing import Match, Union, Dict
 import datetime
 import re
 from shared.constants import (
@@ -10,10 +10,11 @@ from shared.constants import (
     ProducCategory,
     PID_TABLE,
 )
+from shared.interfaces import SealPrice
 
 
 yid_fixed = 21  # 固定
-oid1: Dict[Lamination, int] = {
+oid1: Dict[Union[Lamination, str], int] = {
     Lamination.NO_LAMINATION: 1,
     Lamination.GLOSSY_LAMINATED_PP: 2,
     Lamination.GLOSSY_LAMINATED_PP_WITH_WHITE_PLATE: 2,
@@ -131,17 +132,11 @@ def get_pid(paper_group: str, paper_id: str) -> int:
 
 def convert_for_bigquery(
     category: ProducCategory,
-    raw_data: Dict[str, Dict[str, Dict[str, Any]]],
+    raw_data: Dict[int, Dict[int, SealPrice]],
     index,
 ) -> Dict:
     """
-    raw_data = {
-        [unit: str]: {
-            [eigyo:str]: {
-                [prop:str]: [val:str|int]
-            }
-        }
-    }
+    raw_data :Dict[UNIT, Dict[eigyo: SealPrice]]
     """
     SCHEMA_SEAL: Dict = {
         "yid": 0,
@@ -168,7 +163,7 @@ def convert_for_bigquery(
     s_date: str = datetime.date.today().strftime("%Y-%m-%d")
     for unit in raw_data:
         for eigyo in raw_data[unit]:
-            item: Dict[str, Any] = raw_data[unit][eigyo]
+            item = raw_data[unit][eigyo]
             r: Dict = SCHEMA_SEAL
             r["yid"] = yid_fixed
             r["oid1"] = oid1.get(item["KAKOU"], oid1[Lamination.NO_LAMINATION])

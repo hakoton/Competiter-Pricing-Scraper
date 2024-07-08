@@ -4,16 +4,16 @@ import math
 import requests
 from requests import Response
 import json
-from typing import List, Union, Any, Dict
+from typing import List, Union, Dict
 from bs4 import BeautifulSoup, NavigableString, Tag, ResultSet
 import time
 
 from shared.constants import PID_TABLE
+from shared.interfaces import LabelSealRequestPayload, SealCombination, SealPrice
 from aws.s3 import put_s3
 from data_convert.convert_bigquery_format import ProducCategory, convert_for_bigquery
-from .utils import get_webpage, get_first_value_by_attr
+from .utils import get_webpage, get_first_value_by_attr  # 用紙の種類
 
-# 用紙の種類
 laminate_group: List[int] = [1, 2, 3, 4, 6, 7, 8]
 whitesheet_group: List[int] = [11, 14, 15, 19]
 whitesheet_laminate_group: List[int] = [8]
@@ -176,7 +176,8 @@ def get_price(data, count) -> Response:
         "Accept": "application/json, text/javascript, */*; q=0.01",
         "Content-Type": "application/x-www-form-urlencoded",
     }
-    request_payload = {
+
+    request_payload: LabelSealRequestPayload = {
         "category_id": data["category_id"],
         "size_id": data["size_id"],
         "paper_arr[]": data["paper_arr"],
@@ -201,24 +202,8 @@ def create_all_combinations(
     sizes: List[Dict[str, str]],
     print_papers: List[Dict[str, str]],
     paper_process_option: Dict[str, str],
-) -> List[Dict[str, Union[str, None]]]:
-    """
-    すべてのサイズ、印刷用紙、加工オプションの組み合わせを生成する
-    結果の例:
-    {
-        "category_id": str,
-        "size_id": str,
-        "paper_arr": str,
-        "kakou": str,
-        "tax_flag": 'false',
-        # 追加情報
-        "paper_name": str,
-        "paper_group_id": str,
-        "shape": str,
-        "process": str,
-    }[]
-    """
-    combinations: List[Dict[str, Union[str, None]]] = []
+) -> List[SealCombination]:
+    combinations: List[SealCombination] = []
     for size in sizes:
         for print_pp in print_papers:
             possible_paper_process: List[int] = (
@@ -231,7 +216,7 @@ def create_all_combinations(
                     continue
                 else:
                     for paper_id in paper_id_arr:
-                        obj: Dict[str, Union[str, None]] = {
+                        obj: SealCombination = {
                             "category_id": str(generate_category_id(process)),
                             "size_id": size["size_id"],
                             "paper_arr": str(paper_id),  # paper id
@@ -241,7 +226,7 @@ def create_all_combinations(
                             "paper_name": print_pp["paper_name"],
                             "paper_group_id": print_pp["paper_group_id"],
                             "shape": size["size"],
-                            "process": paper_process_option.get(str(process)),
+                            "process": paper_process_option.get(str(process), "1"),
                         }
                         combinations.append(obj)
 
@@ -268,12 +253,12 @@ def crawl_label_seal_prices(
     # 2. 印刷用紙（シールの紙質）を取得
     print_papers: List[Dict[str, str]] = extract_all_print_papers(html)
     paper_process_option: Dict[str, str] = get_all_paper_process_options(html)
-    combinations: List[Dict[str, Union[str, None]]] = create_all_combinations(
+    combinations: List[SealCombination] = create_all_combinations(
         sizes, print_papers, paper_process_option
     )
 
     if save_combinations == True:
-        with open("label_n_sticker_combination.txt", "w") as file:
+        with open("seal_combination.txt", "w") as file:
             json.dump(combinations, file, indent=4, ensure_ascii=False)
 
     """
@@ -285,14 +270,14 @@ def crawl_label_seal_prices(
     """
     count = [0]
     idx = [0]
-    result = {}
+    result: Dict[int, Dict[int, SealPrice]] = {}
 
     number_of_combinations = len(combinations)
     ten_pct = math.ceil(number_of_combinations / 10)
     print("[Number of Combinations] ", number_of_combinations)
 
     for item in combinations:
-        res_data: Dict[str, Dict[str, Any]] = {}
+        res_data: Dict[int, Dict[int, SealPrice]] = {}
         if count[0] == (number_of_combinations - 1):
             print("Progress: 100%")
         elif count[0] % ten_pct == 0:
@@ -303,7 +288,7 @@ def crawl_label_seal_prices(
             if r is None:
                 print("No data returned")
             else:
-                res_data = r.json()["tbody"]["body"]
+                res_data: Dict[int, Dict[int, SealPrice]] = r.json()["tbody"]["body"]
 
                 for unit in res_data:
                     for eigyo in res_data[unit]:
