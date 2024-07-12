@@ -3,6 +3,8 @@ from requests import Response
 from bs4 import BeautifulSoup, Tag
 from typing import List, Union
 
+from shared.interfaces import OptionInfo
+
 
 def get_webpage(url: str) -> BeautifulSoup:
     try:
@@ -28,3 +30,7 @@ def get_first_value_by_attr(el: Tag, field: str) -> str:
         return val[0]
     else:
         raise ValueError("Invalid input")
+
+
+def extract_id(data: List[OptionInfo]) -> List[str]:
+    return [e["id"] for e in data]

@@ -1,13 +1,20 @@
-from typing import Dict, Any
+from typing import Dict, Any, TypedDict
 from enum import Enum
+
+from shared.interfaces import StickerSizeInfo
 
 
 class Lamination(Enum):
     NO_LAMINATION = "ラミネートなし"
+    WHITE_PLATE = "白版追加"
+    GLOSSY_LAMINATED = "つや ラミネート"
     GLOSSY_LAMINATED_PP = "光沢グロスPPラミネート"
     GLOSSY_LAMINATED_PP_WITH_WHITE_PLATE = "光沢グロスPPラミネート＋白版追加"
     MATTE_LAMINATED_PP = "マットPPラミネート"
     MATTE_LAMINATED_PP_WITH_WHITE_PLATE = "マットPPラミネート＋白版追加"
+    MATTE_LAMINATED = "マット ラミネート"
+    EMBOSSED_LAMINATED = "エンボス ラミネート"
+
     # 以下の文字列は、利用可能なオプションではないため、ウェブサイト上の値と一致するかどうか検証されません。
     GLOSSY_LAMINATED_PVC = "光沢ラミネート加工（PVC）"
     GLOSSY_LAMINATED_PET = "光沢ラミネート(PET)"
@@ -33,36 +40,35 @@ class Glue(Enum):
 
 
 class Shape(Enum):
-    """
-    "正方形mm×mm",
-    "長方形mm×mm",
-    "角丸四角形mm×mm",
-    "円形mm×mm",
-    "楕円形mm×mm"
-    """
-
     UNKNOWN = "unknown"  # Shapeは新しく、事前に定義されていません
     SQUARE = "正方形"
     RECTANGLE = "長方形"
     R_RECTANGLE = "角丸四角形"
     ROUND = "円形"
     OVAL = "楕円形"
-    FREE = "free"
+    FREE = "自由"
     MULTI = "multi"
 
 
 class Color(Enum):
-    FOUR_COLORS = "4 colors 1 side"
-    FIVE_COLORS = "4 colors and white 1 side"
+    FOUR_COLORS = "1"  # CMYK印刷
+    FIVE_COLORS = "2"  # RGB+α印刷
 
 
-class ProducCategory(Enum):
+class ProductCategory(Enum):
     SEAL = 1
     STICKER = 2
     MULTI_STICKER = 3
 
 
+class PidAndGlueInfo(TypedDict):
+    pid: int
+    glue_type: Glue
+
+
 """
+印刷用紙IDと対応する用紙IDのマッピング
+https://www.printpac.co.jp/contents/lineup/seal/js/size.js?20240612164729
 {
     [paper_group_id]: {
         [paper_id]: {
@@ -71,10 +77,8 @@ class ProducCategory(Enum):
         }
     }
 }
-印刷用紙IDと対応する用紙IDのマッピング
-https://www.printpac.co.jp/contents/lineup/seal/js/size.js?20240612164729
 """
-PID_TABLE: Dict[int, Dict[int, Dict[str, Any]]] = {
+SEAL_PID_TABLE: Dict[int, Dict[int, Dict[str, Any]]] = {
     1: {152: {"pid": 100, "glue_type": Glue.REPEELABLE_GLUE}},
     2: {154: {"pid": 204, "glue_type": Glue.ORDINARY_GLUE}},
     3: {153: {"pid": 100, "glue_type": Glue.CORRECTION_GLUE}},
@@ -117,4 +121,50 @@ PID_TABLE: Dict[int, Dict[int, Dict[str, Any]]] = {
     24: {471: {"pid": 1014, "glue_type": Glue.ORDINARY_GLUE}},
     25: {474: {"pid": 1013, "glue_type": Glue.ORDINARY_GLUE}},
     26: {470: {"pid": 1009, "glue_type": Glue.ORDINARY_GLUE}},
+}
+
+
+STICKER_SIZE_TABLE: Dict[str, StickerSizeInfo] = {
+    "1250": {"size_id": "69", "size_sample": {"width": "10", "height": "120"}},
+    "2500": {"size_id": "70", "size_sample": {"width": "10", "height": "200"}},
+    "5000": {"size_id": "71", "size_sample": {"width": "10", "height": "400"}},
+    "10000": {"size_id": "72", "size_sample": {"width": "10", "height": "900"}},
+    "15000": {"size_id": "73", "size_sample": {"width": "10", "height": "1400"}},
+    "22500": {"size_id": "74", "size_sample": {"width": "10", "height": "2200"}},
+    "30000": {"size_id": "75", "size_sample": {"width": "10", "height": "2900"}},
+    "40000": {"size_id": "76", "size_sample": {"width": "10", "height": "3900"}},
+    "60000": {"size_id": "77", "size_sample": {"width": "10", "height": "5900"}},
+    "90000": {"size_id": "78", "size_sample": {"width": "10", "height": "8900"}},
+}
+
+
+"""
+{
+    [material_id]: {
+        "pid": int,
+        "glue_type": Glue
+    }
+}
+"""
+STICKER_PID_TABLE: Dict[int, PidAndGlueInfo] = {
+    1: {"pid": 237, "glue_type": Glue.CORRECTION_GLUE},  # 合成紙（グレー糊）
+    2: {"pid": 224, "glue_type": Glue.ORDINARY_GLUE},  # PET
+    3: {"pid": 207, "glue_type": Glue.STRONG_ADHESIVE},  # 塩ビ（ツヤ）
+    4: {"pid": 1002, "glue_type": Glue.ORDINARY_GLUE},  # 塩ビ（マット）
+    5: {"pid": 1001, "glue_type": Glue.ORDINARY_GLUE},  # 塩ビ（ツヤlite）
+    6: {"pid": 1003, "glue_type": Glue.REPEELABLE_GLUE},  # 塩ビ（ツヤ）強粘着
+}
+
+"""
+{
+    [paper_id]: {
+        "pid": int,
+        "glue_type": Glue
+    }
+}
+"""
+MULTI_STICKER_PID_TABLE: Dict[int, PidAndGlueInfo] = {
+    404: {"pid": 207, "glue_type": Glue.STRONG_ADHESIVE},  # 塩ビ（ツヤ）
+    405: {"pid": 224, "glue_type": Glue.ORDINARY_GLUE},  # PET
+    409: {"pid": 1001, "glue_type": Glue.ORDINARY_GLUE},  # 塩ビ（ツヤlite）
 }
