@@ -7,7 +7,7 @@ from .utils import register_to_bigquery_table
 
 
 def doRegist(data: bytes, settings=GlobalSettings()) -> bool:
-    BIGQUERY_TABLE: str = "printpac_seal_prices"
+    BIGQUERY_TABLE: str = "printpac_multi_sticker_prices"
 
     converted_data: Dict = {} if data == None else json.loads(data.decode("utf-8"))
     if len(converted_data) == 0:

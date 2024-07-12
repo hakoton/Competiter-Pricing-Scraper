@@ -1,7 +1,6 @@
 import urllib.parse
 import boto3
 from typing import Dict
-
 from global_settings import GlobalSettings
 import handler_mapping
 
@@ -42,6 +41,7 @@ def lambda_handler(event: Dict, context):
 
     try:
         # ファイル名からInvoke先を特定し、ストリームを渡す
+        print("Getting data...")
         if settings.DEBUG_S3_NO_STREAM:
             handler_mapping.FILE_PREFIX_MAP[target].doRegist(None)
         else:
