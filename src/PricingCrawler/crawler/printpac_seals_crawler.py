@@ -358,11 +358,6 @@ def doCrawl(s3_bucketname: str, s3_subdir: str) -> bool:
             + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
             + ".json"
         )
-        with open(
-            prefix + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + ".json",
-            "w",
-        ) as file:
-            json.dump(converted_data, file, indent=4, ensure_ascii=False)
         print(f"Uploading [{key}] ...")
         put_s3(converted_data, s3_bucketname, key)
         print(f"Uploaded [{key}] successfully")
