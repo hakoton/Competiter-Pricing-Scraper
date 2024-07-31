@@ -2,14 +2,15 @@
 class GlobalSettings:
     _instance = None
 
+    # AWS 関係
     AWS_REGION = "ap-northeast-1"
     S3_PRICING_BUCKET_NAME = "mbs-for-test"
     S3_PRICING_SUBDIR_PATH = "pricing/"
     # AWS SSM関連
     SSM_AUTH_PRM_KEY = "/mbs-new-pricing/auth/bigquery"
-    # BiqQuery関係
 
-    BQ_PROJECT_ID = "raksulcrm-dev"
+    # BiqQuery 関係
+    BQ_PROJECT_ID = "raksul-429806"
     BQ_DATASET_ID = "lake_competitor"
     DEBUG_S3_NO_STREAM = False
 
