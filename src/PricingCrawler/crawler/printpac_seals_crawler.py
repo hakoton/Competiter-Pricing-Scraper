@@ -4,7 +4,7 @@ import math
 import requests
 from requests import Response
 import json
-from typing import List, Union, Dict
+from typing import Any, List, Union, Dict
 from bs4 import BeautifulSoup, NavigableString, Tag, ResultSet
 import time
 
@@ -15,7 +15,7 @@ from shared.interfaces import (
     SealCombination,
     SealPrice,
 )
-from aws.s3 import put_s3
+from aws.s3 import S3_Client
 from data_convert.convert_bigquery_format import (
     ProductCategory,
     convert_seal_price_for_bigquery,
@@ -270,9 +270,11 @@ def _create_all_combinations(
 
 
 def _crawl_label_seal_prices(
+    s3_client: S3_Client,
+    file_name: str,
     save_combinations: bool = False,
     interval_s: float = 0.1,
-) -> Dict[str, Dict[str, SealPrice]]:
+) -> None:
     """
     ラベルとステッカーの価格をクロール
     save_combinations: すべての組み合わせをローカルファイルに保存するかどうか
@@ -303,15 +305,24 @@ def _crawl_label_seal_prices(
         }
     """
     count = 0
+    part_number = 1
+    chunk_size = 64 * 1024 * 1024  # 64 MB
+    parts = []
     idx: List[int] = [0]
-    result: Dict[str, Dict[str, SealPrice]] = {}
 
     number_of_combinations: int = len(combinations)
     ten_pct: int = math.ceil(number_of_combinations / 10)
     print("[Number of Combinations] ", number_of_combinations)
 
+    upload_stream = s3_client.create_multipart_upload(file_name)
+    upload_id = upload_stream["UploadId"]
+    print(f"Multipart upload initiated with ID: {upload_id}")
+
+    # buffer.write(b"[")  # メインのJSONオブジェクトの開始
+    buffer = "{"
+
     for item in combinations:
-        if count == (number_of_combinations - 1):
+        if count == number_of_combinations - 1:
             print("Progress: 100%")
         elif count % ten_pct == 0:
             print("Progress: {}%".format((count * 10 / ten_pct)))
@@ -334,38 +345,62 @@ def _crawl_label_seal_prices(
                         res_data[unit][eigyo]["UNIT"] = unit
                         res_data[unit][eigyo]["eigyo"] = eigyo
 
-                result.update(
-                    convert_seal_price_for_bigquery(ProductCategory.SEAL, res_data, idx)
+                converted_data = convert_seal_price_for_bigquery(
+                    ProductCategory.SEAL, res_data, idx
                 )
+
+                buffer += json.dumps(converted_data)[1:-1]  # ブラケットを外す
+                buffer += ","
+
+                if len(buffer.encode("utf-8")) >= chunk_size:
+                    data_to_upload = buffer
+                    buffer = None
+                    buffer = ""
+                    part_response: Any = s3_client.upload_part(
+                        file_name,
+                        part_number,
+                        upload_id,
+                        data_to_upload,
+                    )
+                    parts.append(
+                        {"PartNumber": part_number, "ETag": part_response["ETag"]}
+                    )
+                    part_number += 1
                 count += 1
                 time.sleep(interval_s)
         except Exception as e:
             print("Error when requesting item with info: ", item, e)
 
-    print("Success rate: {}%".format(round(count * 100 / number_of_combinations, 2)))
-    return result
+    # JSONを最終化
+    if buffer:
+        if buffer[-1] == "}":
+            buffer += "}"
+        else:
+            buffer = buffer.rstrip(",") + "}"
+    part_response: Any = s3_client.upload_part(
+        file_name,
+        part_number,
+        upload_id,
+        buffer,
+    )
+    parts.append({"PartNumber": part_number, "ETag": part_response["ETag"]})
+    s3_client.complete_multipart_upload(file_name, upload_id, parts)
+
+    print(
+        "Success rate: {}%".format(round(part_number * 100 / number_of_combinations, 2))
+    )
 
 
 def doCrawl(s3_bucketname: str, s3_subdir: str) -> bool:
     try:
-        converted_data: Dict[str, Dict[str, SealPrice]] = _crawl_label_seal_prices()
-
         # 　ファイルの名：<相手-製品> _ <作成時間>.json
         prefix = "printpac-label-seal_"
-        key: str = (
-            s3_subdir
-            + prefix
-            + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-            + ".json"
+        file_name: str = (
+            prefix + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + ".json"
         )
-        with open(
-            prefix + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + ".json",
-            "w",
-        ) as file:
-            json.dump(converted_data, file, indent=4, ensure_ascii=False)
-        print(f"Uploading [{key}] ...")
-        put_s3(converted_data, s3_bucketname, key)
-        print(f"Uploaded [{key}] successfully")
+        s3_client = S3_Client(s3_bucketname, s3_subdir)
+        _crawl_label_seal_prices(s3_client, file_name)
+        print(f"Uploaded [{prefix+file_name}] successfully")
         return True
     except Exception as e:
         print("Error - ", e)

@@ -3,10 +3,10 @@ import datetime
 import math
 import json
 import requests
-from typing import Dict, List
+from typing import Any, Dict, List
 from requests import Response
 from bs4 import BeautifulSoup, Tag, ResultSet
-from aws.s3 import put_s3
+from aws.s3 import S3_Client
 
 from data_convert.convert_bigquery_format import convert_sticker_price_for_bigquery
 from shared.constants import STICKER_SIZE_TABLE, ProductCategory
@@ -228,10 +228,11 @@ def _get_price(data: StickerCombination) -> Response:
 
 
 def _crawl_sicker_prices(
+    s3_client: S3_Client,
+    file_name: str,
     save_combinations: bool = False,
-    save_prices: bool = False,
     interval_s: float = 0.1,
-) -> Dict[str, Dict[str, StickerPrice]]:
+) -> None:
     url = "https://www.printpac.co.jp/contents/lineup/sticker/"
     html: BeautifulSoup = get_webpage(url)
 
@@ -254,13 +255,20 @@ def _crawl_sicker_prices(
         }
     """
     count: int = 0
+    part_number = 1
+    chunk_size = 64 * 1024 * 1024  # 64 MB
+    parts = []
     idx: List[int] = [0]
-    result: Dict[str, Dict[str, StickerPrice]] = {}
 
     number_of_combinations: int = len(combinations)
     ten_pct: int = math.ceil(number_of_combinations / 10)
     print("[Number of Combinations] ", number_of_combinations)
 
+    upload_stream = s3_client.create_multipart_upload(file_name)
+    upload_id = upload_stream["UploadId"]
+    print(f"Multipart upload initiated with ID: {upload_id}")
+
+    buffer = "{"
     for item in combinations:
         if count == (number_of_combinations - 1):
             print("Progress: 100%")
@@ -304,44 +312,60 @@ def _crawl_sicker_prices(
                         price["eigyo"] = eigyo
                         # Override "1" object with information
                         res_data[unit][eigyo] = price
-                result.update(
-                    convert_sticker_price_for_bigquery(
-                        ProductCategory.STICKER, res_data, idx
-                    )
+                converted_data = convert_sticker_price_for_bigquery(
+                    ProductCategory.STICKER, res_data, idx
                 )
+
+                buffer += json.dumps(converted_data)[1:-1]  # ブラケットを外す
+                buffer += ","
+
+                if len(buffer.encode("utf-8")) >= chunk_size:
+                    data_to_upload = buffer
+                    buffer = None
+                    buffer = ""
+                    part_response: Any = s3_client.upload_part(
+                        file_name,
+                        part_number,
+                        upload_id,
+                        data_to_upload,
+                    )
+                    parts.append(
+                        {"PartNumber": part_number, "ETag": part_response["ETag"]}
+                    )
+                    part_number += 1
                 count += 1
                 time.sleep(interval_s)
         except Exception as e:
             print("Error when requesting item with info: ", item, e)
 
-    if save_prices == True:
-        with open("sticker_prices.json", "w") as file:
-            json.dump(result, file, indent=4, ensure_ascii=False)
+    # JSONを最終化
+    if buffer:
+        if buffer[-1] == "}":
+            buffer += "}"
+        else:
+            buffer = buffer.rstrip(",") + "}"
+    part_response: Any = s3_client.upload_part(
+        file_name,
+        part_number,
+        upload_id,
+        buffer,
+    )
+    parts.append({"PartNumber": part_number, "ETag": part_response["ETag"]})
+    s3_client.complete_multipart_upload(file_name, upload_id, parts)
 
     print("Success rate: {}%".format(round(count * 100 / number_of_combinations, 2)))
-    return result
 
 
 def doCrawl(s3_bucketname: str, s3_subdir: str) -> bool:
     try:
-        converted_data: Dict[str, Dict[str, StickerPrice]] = _crawl_sicker_prices()
-
         # 　ファイルの名：<相手-製品> _ <作成時間>.json
         prefix = "printpac-sticker_"
-        key: str = (
-            s3_subdir
-            + prefix
-            + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-            + ".json"
+        file_name: str = (
+            prefix + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + ".json"
         )
-        with open(
-            prefix + datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + ".json",
-            "w",
-        ) as file:
-            json.dump(converted_data, file, indent=4, ensure_ascii=False)
-        print(f"Uploading [{key}] ...")
-        put_s3(converted_data, s3_bucketname, key)
-        print(f"Uploaded [{key}] successfully")
+        s3_client = S3_Client(s3_bucketname, s3_subdir)
+        _crawl_sicker_prices(s3_client, file_name)
+        print(f"Uploaded [{file_name}] successfully")
         return True
     except Exception as e:
         print("Error - ", e)

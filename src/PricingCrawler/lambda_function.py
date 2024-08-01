@@ -16,6 +16,7 @@ def lambda_handler(event, context):
         gs.S3_PRICING_BUCKET_NAME, gs.S3_PRICING_SUBDIR_PATH
     ):
         print(f"{event[gs.COMMAND_PRM_NAME]} crawler failed.")
+        return {"statusCode": 400}
 
     return {
         "statusCode": 200,

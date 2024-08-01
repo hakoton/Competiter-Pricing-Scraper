@@ -45,6 +45,8 @@ def lambda_handler(event: Dict, context):
         if settings.DEBUG_S3_NO_STREAM:
             handler_mapping.FILE_PREFIX_MAP[target].doRegist(None)
         else:
+            print("Bucket: ", bucket)
+            print("Key: ", key)
             response = s3.get_object(Bucket=bucket, Key=key)
             handler_mapping.FILE_PREFIX_MAP[target].doRegist(response["Body"].read())
         return f"Pricing Register : {key} Succeed!"

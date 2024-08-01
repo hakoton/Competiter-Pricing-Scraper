@@ -1,0 +1,12 @@
+{
+    "Records": [
+        {
+            "s3": {
+                "bucket": { "name": "mbs-for-test" },
+                "object": {
+                    "key": "pricing/printpac-multi-sticker_2024-07-31-05-54-53.json"
+                }
+            }
+        }
+    ]
+}

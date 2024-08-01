@@ -38,7 +38,7 @@ def _create_main_table(pricing_query: bq_manager.PricingQuery, main_table: str) 
         pricing_query.create_table(main_table, TABLE_SCHEMA)
         print(f"Created table [{main_table.split('.')[-1]}]")
     except Exception as e:
-        print(f"Cannot create main table [{main_table}]")
+        print(f"Cannot create main table [{main_table}] - ", e)
 
 
 def _create_temp_table(
