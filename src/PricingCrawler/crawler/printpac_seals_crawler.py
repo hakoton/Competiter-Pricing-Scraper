@@ -66,21 +66,45 @@ def _in_whitesheet_laminate_group(paper_group_id: str) -> bool:
         return True
 
 
-def _filter_pp_process_options_by_print_paper(paper_group_id: str) -> List[int]:
+def _filter_pp_process_options_by_print_paper(paper_group_id: str) -> List:
     """
     加工のオプション
     デフォルトオプション: ラミネートなし
     """
-    process_options: List[int] = [SealProcessId[Lamination.NO_LAMINATION]]
+    # process_options: List[int] = [SealProcessId[Lamination.NO_LAMINATION]]
+    process_options = [
+        {
+            "id": SealProcessId[Lamination.NO_LAMINATION],
+            "name": Lamination.NO_LAMINATION,
+        }
+    ]
 
     if _in_laminate_group(paper_group_id):
-        process_options.append(SealProcessId[Lamination.GLOSSY_LAMINATED_PP])  # 2
-        process_options.append(SealProcessId[Lamination.MATTE_LAMINATED_PP])  # 3
+        process_options.append(
+            {
+                "id": SealProcessId[Lamination.GLOSSY_LAMINATED_PP],
+                "name": Lamination.GLOSSY_LAMINATED_PP,
+            }
+        )
+        process_options.append(
+            {
+                "id": SealProcessId[Lamination.MATTE_LAMINATED_PP],
+                "name": Lamination.MATTE_LAMINATED_PP,
+            }
+        )  # 3
     if _in_whitesheet_group(paper_group_id):
-        process_options.append(SealProcessId[Lamination.WHITE_PLATE])  # 4
+        process_options.append(
+            {
+                "id": SealProcessId[Lamination.WHITE_PLATE],
+                "name": Lamination.WHITE_PLATE,
+            }
+        )  # 4
     if _in_whitesheet_laminate_group(paper_group_id):
         process_options.append(
-            SealProcessId[Lamination.GLOSSY_LAMINATED_PP_WITH_WHITE_PLATE]
+            {
+                "id": SealProcessId[Lamination.GLOSSY_LAMINATED_PP_WITH_WHITE_PLATE],
+                "name": Lamination.GLOSSY_LAMINATED_PP_WITH_WHITE_PLATE,
+            }
         )  # 5
     return process_options
 
@@ -242,27 +266,29 @@ def _create_all_combinations(
     combinations: List[SealCombination] = []
     for size in sizes:
         for print_pp in print_papers:
-            possible_paper_process: List[int] = (
-                _filter_pp_process_options_by_print_paper(print_pp["id"])
+            possible_paper_process = _filter_pp_process_options_by_print_paper(
+                print_pp["id"]
             )
             for process in possible_paper_process:
                 # 一部の印刷用紙には異なるカスタマイズオプションがある
                 paper_id_arr = _set_paper_id_arr(print_pp["id"])
+                process_id: int = process["id"]
+                process_name: Lamination = process["name"]
                 if paper_id_arr is None:
                     continue
                 else:
                     for paper_id in paper_id_arr:
                         obj: SealCombination = {
-                            "category_id": str(_set_category_id(process)),
+                            "category_id": str(_set_category_id(process_id)),
                             "size_id": size["id"],
                             "paper_arr": str(paper_id),  # paper id
-                            "kakou": str(process),
+                            "kakou": str(process_id),
+                            "kakou_name": process_name,
                             "tax_flag": tax_flag,
                             # クエリに必要な情報以外の詳細
                             "paper_name": print_pp["name"],
                             "paper_group_id": print_pp["id"],
                             "shape": size["name"],
-                            "process": paper_process_option.get(str(process), "1"),
                         }
                         combinations.append(obj)
 
@@ -338,7 +364,7 @@ def _crawl_label_seal_prices(
                     for eigyo in res_data[unit]:
                         res_data[unit][eigyo]["SHAPE"] = item["shape"]
                         res_data[unit][eigyo]["PRINT"] = item["paper_name"]
-                        res_data[unit][eigyo]["KAKOU"] = item["process"]
+                        res_data[unit][eigyo]["KAKOU"] = item["kakou_name"]
                         res_data[unit][eigyo]["PAPER_GROUP_ID"] = item["paper_group_id"]
                         res_data[unit][eigyo]["PAPER_ID"] = item["paper_arr"]
 
@@ -400,7 +426,7 @@ def doCrawl(s3_bucketname: str, s3_subdir: str) -> bool:
         )
         s3_client = S3_Client(s3_bucketname, s3_subdir)
         _crawl_label_seal_prices(s3_client, file_name)
-        print(f"Uploaded [{prefix+file_name}] successfully")
+        print(f"Uploaded [{file_name}] successfully")
         return True
     except Exception as e:
         print("Error - ", e)

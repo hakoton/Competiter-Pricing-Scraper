@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup, Tag, ResultSet
 from aws.s3 import S3_Client
 
 from data_convert.convert_bigquery_format import convert_sticker_price_for_bigquery
-from shared.constants import STICKER_SIZE_TABLE, ProductCategory
+from shared.constants import STICKER_SIZE_TABLE, Lamination, ProductCategory
 from shared.interfaces import (
     OptionInfo,
     StickerSizeInfo,
@@ -86,10 +86,11 @@ def _set_paper_id(material_id: str) -> str:
 def _filter_process_opts_on_paper_material(
     material_id: str,
 ) -> List[OptionInfo]:
-    processing_opts_1: OptionInfo = {"id": "1", "name": "つや ラミネート"}
-    processing_opts_2: OptionInfo = {"id": "2", "name": "マット ラミネート"}
-    processing_opts_3: OptionInfo = {"id": "3", "name": "エンボス ラミネート"}
-    processing_opts_4: OptionInfo = {"id": "4", "name": "ラミネートなし"}
+    processing_opts_1: OptionInfo = {"id": "1", "name": Lamination.GLOSSY_LAMINATED}
+    processing_opts_2: OptionInfo = {"id": "2", "name": Lamination.MATTE_LAMINATED}
+    processing_opts_3: OptionInfo = {"id": "3", "name": Lamination.EMBOSSED_LAMINATED}
+    processing_opts_4: OptionInfo = {"id": "4", "name": Lamination.NO_LAMINATION}
+    print(processing_opts_1)
 
     # { [material_id]: List[process_opt] }
     paper_processing_map: Dict[str, List[OptionInfo]] = {

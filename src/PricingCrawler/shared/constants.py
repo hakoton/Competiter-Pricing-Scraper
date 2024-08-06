@@ -1,8 +1,6 @@
 from typing import Dict, Any, TypedDict
 from enum import Enum
 
-from shared.interfaces import StickerSizeInfo
-
 
 class Lamination(Enum):
     NO_LAMINATION = "ラミネートなし"
@@ -124,7 +122,7 @@ SEAL_PID_TABLE: Dict[int, Dict[int, Dict[str, Any]]] = {
 }
 
 
-STICKER_SIZE_TABLE: Dict[str, StickerSizeInfo] = {
+STICKER_SIZE_TABLE = {
     "1250": {"size_id": "69", "size_sample": {"width": "10", "height": "120"}},
     "2500": {"size_id": "70", "size_sample": {"width": "10", "height": "200"}},
     "5000": {"size_id": "71", "size_sample": {"width": "10", "height": "400"}},

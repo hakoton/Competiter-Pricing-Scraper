@@ -18,11 +18,11 @@ from shared.interfaces import MultiStickerPrice, PriceSchema, SealPrice, Sticker
 yid_fixed = 21  # 固定
 oid1: Dict[Union[Lamination, str], int] = {
     Lamination.NO_LAMINATION: 1,
+    Lamination.GLOSSY_LAMINATED: 2,
     Lamination.GLOSSY_LAMINATED_PP: 2,
     Lamination.GLOSSY_LAMINATED_PP_WITH_WHITE_PLATE: 2,
-    Lamination.MATTE_LAMINATED: 2,
-    Lamination.MATTE_LAMINATED_PP: 5,
     Lamination.MATTE_LAMINATED: 5,
+    Lamination.MATTE_LAMINATED_PP: 5,
     Lamination.MATTE_LAMINATED_PP_WITH_WHITE_PLATE: 5,
     Lamination.EMBOSSED_LAMINATED: 1000,
     # 以下の文字列は、利用可能なオプションではないため、ウェブサイト上の値と一致するかどうか検証されません。
