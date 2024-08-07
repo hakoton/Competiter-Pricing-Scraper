@@ -90,7 +90,6 @@ def _filter_process_opts_on_paper_material(
     processing_opts_2: OptionInfo = {"id": "2", "name": Lamination.MATTE_LAMINATED}
     processing_opts_3: OptionInfo = {"id": "3", "name": Lamination.EMBOSSED_LAMINATED}
     processing_opts_4: OptionInfo = {"id": "4", "name": Lamination.NO_LAMINATION}
-    print(processing_opts_1)
 
     # { [material_id]: List[process_opt] }
     paper_processing_map: Dict[str, List[OptionInfo]] = {

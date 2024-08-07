@@ -205,29 +205,6 @@ def _get_all_print_papers(html: BeautifulSoup) -> List[OptionInfo]:
     return result
 
 
-def _get_all_paper_process_options(html: BeautifulSoup) -> Dict[str, str]:
-    """
-    {
-        [key: paper_process_option_id]: paper_process_option_name
-    }
-    結果の例:
-    {
-        '1': 'ラミネートなし',
-        '2': '光沢グロスPPラミネート',
-        '3': 'マットPPラミネート',
-        '4': '白版追加',
-        '5': '光沢グロスPPラミネート＋白版追加',
-        '6': 'マットPPラミネート＋白版追加'
-    }
-    """
-    paper_process_el = html.find_all("input", {"name": "kakou"})
-    obj = {}
-    for el in paper_process_el:
-        obj[el["value"]] = el["data-name"]
-
-    return obj
-
-
 """ SECTION ENDED """
 
 
@@ -261,7 +238,6 @@ def _get_price(data) -> Response:
 def _create_all_combinations(
     sizes: List[OptionInfo],
     print_papers: List[OptionInfo],
-    paper_process_option: Dict[str, str],
 ) -> List[SealCombination]:
     combinations: List[SealCombination] = []
     for size in sizes:
@@ -314,10 +290,7 @@ def _crawl_label_seal_prices(
 
     # 2. 印刷用紙（シールの紙質）を取得
     print_papers: List[OptionInfo] = _get_all_print_papers(html)
-    paper_process_option: Dict[str, str] = _get_all_paper_process_options(html)
-    combinations: List[SealCombination] = _create_all_combinations(
-        sizes, print_papers, paper_process_option
-    )
+    combinations: List[SealCombination] = _create_all_combinations(sizes, print_papers)
 
     if save_combinations == True:
         with open("seal_combination.txt", "w") as file:
