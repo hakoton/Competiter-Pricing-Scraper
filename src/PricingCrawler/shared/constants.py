@@ -3,6 +3,7 @@ from enum import Enum
 
 
 class Lamination(Enum):
+    NOT_FOUND = "NOT_FOUND"
     NO_LAMINATION = "ラミネートなし"
     WHITE_PLATE = "白版追加"
     GLOSSY_LAMINATED = "つや ラミネート"
@@ -82,7 +83,7 @@ SEAL_PID_TABLE: Dict[int, Dict[int, Dict[str, Any]]] = {
     3: {153: {"pid": 100, "glue_type": Glue.CORRECTION_GLUE}},
     4: {157: {"pid": 100, "glue_type": Glue.FROZEN_FOOD_PASTE}},
     5: {155: {"pid": 101, "glue_type": Glue.ORDINARY_GLUE}},
-    6: {158: {"pid": 222, "glue_type": Glue.ORDINARY_GLUE}},
+    6: {158: {"pid": 224, "glue_type": Glue.ORDINARY_GLUE}},
     7: {156: {"pid": 237, "glue_type": Glue.ORDINARY_GLUE}},
     8: {173: {"pid": 238, "glue_type": Glue.ORDINARY_GLUE}},
     9: {147: {"pid": 222, "glue_type": Glue.ORDINARY_GLUE}},
@@ -122,7 +123,7 @@ SEAL_PID_TABLE: Dict[int, Dict[int, Dict[str, Any]]] = {
 }
 
 
-STICKER_SIZE_TABLE = {
+STICKER_SIZE_TABLE: Any = {
     "1250": {"size_id": "69", "size_sample": {"width": "10", "height": "120"}},
     "2500": {"size_id": "70", "size_sample": {"width": "10", "height": "200"}},
     "5000": {"size_id": "71", "size_sample": {"width": "10", "height": "400"}},
