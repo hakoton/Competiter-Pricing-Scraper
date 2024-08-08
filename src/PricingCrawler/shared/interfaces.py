@@ -119,7 +119,7 @@ class StickerCombination(TypedDict):
     material_id: str
     processing_opt_id: str
     half_cut_amount_id: str
-    processing_opt_name: str
+    processing_opt_name: Lamination
 
 
 class StickerRequestPayload(TypedDict):
@@ -160,7 +160,7 @@ class StickerPrice(TypedDict):
     SIZE_RANGE: str
     SHAPE: str
     KAKOU: str
-    KAKOU_NAME: str
+    KAKOU_NAME: Lamination
     MATERIAL_ID: str
     COLOR_ID: str
     HALF_CUT: str
