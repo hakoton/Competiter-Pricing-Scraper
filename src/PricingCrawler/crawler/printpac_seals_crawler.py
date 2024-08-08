@@ -154,10 +154,6 @@ def _get_all_sizes(html: BeautifulSoup) -> List[OptionInfo]:
     """
     result: List[OptionInfo] = []
     for div in size_divs:
-        # size_name を抽出
-        size_name: str = get_first_value_by_attr(div, "alt")
-
-        # size_id を抽出
         size_id: str = ""
         size_element: Union[Tag, NavigableString, None] = div.find("input")
         if isinstance(size_element, Tag):
@@ -166,6 +162,7 @@ def _get_all_sizes(html: BeautifulSoup) -> List[OptionInfo]:
                 size_id = value
             else:
                 size_id = value[0]
+            size_name: str = get_first_value_by_attr(size_element, "data-name")
         else:
             raise ValueError("size_element is not a Tag")
 
