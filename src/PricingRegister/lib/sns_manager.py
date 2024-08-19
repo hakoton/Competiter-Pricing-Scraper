@@ -1,7 +1,7 @@
 from typing import List
-from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
+import requests
 from global_settings import GlobalSettings
+from lib import ssm_manager
 from shared.constants import (
     ProductCategory,
 )
@@ -13,12 +13,12 @@ from shared.bigquery_mappings import (
 
 
 class NotificationCenter:
-    slack_client: WebClient
-    slack_channel_id: str
+    ssm: ssm_manager.Ssm
+    slack_webhook_url: str
 
     def __init__(self, settings: GlobalSettings) -> None:
-        self.slack_client = WebClient(settings.SLACK_TOKEN)
-        self.slack_channel_id = settings.SLACK_CHANNEL_ID
+        self.ssm: ssm_manager.Ssm = ssm_manager.Ssm(settings)
+        self.slack_webhook_url = self.ssm.get_slack_cred()
 
     def notify(
         self, product_name: ProductCategory, price_diff_list: List[PriceDiff]
@@ -108,12 +108,15 @@ class NotificationCenter:
         try:
             if len(price_change_content) == 0:
                 return
-            print(message)
-            self.slack_client.chat_postMessage(
-                channel=self.slack_channel_id, text=message
+            response: requests.Response = requests.post(
+                self.slack_webhook_url,
+                json={"text": message},
+                headers={"Content-Type": "application/json"},
             )
-        except SlackApiError as e:
-            print(f"Error posting message: {e.response['error']}")
+            if response.status_code != 200:
+                raise RuntimeError(response.text)
+        except Exception as e:
+            print(f"Error posting message: {e}")
 
     def _check_price_difference(self, price_old: int, price_new: int) -> str:
         if price_old == price_new:

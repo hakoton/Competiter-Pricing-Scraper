@@ -60,9 +60,14 @@ Uploaded [pricing/printpac-multi-sticker_2024-07-31-05-54-53.json] successfully
 ```bash
 json_string=$(cat ~/Downloads/raksul-429806-fea1b10a1a87.json)
 aws ssm put-parameter --name "/mbs-new-pricing/auth/bigquery" --value "$json_string" --type "String" --overwrite
+
+slack_webhook_url="<url>"
+aws ssm put-parameter --name "/mbs-new-pricing/auth/slack" --value "$slack_webhook_url" --type "String" --overwrite
 ```
-** 注意: `/mbs-new-pricing/auth/bigquery`は名前に過ぎません。任意の値に変更することができます。
-変更した場合、`PricingRegister/global_settings.py`内の変数`SSM_AUTH_PRM_KEY`に反映する必要があります。
+
+
+** 注意: `/mbs-new-pricing/auth/bigquery`と`/mbs-new-pricing/auth/slack`は名前に過ぎません。任意の値に変更することができます。
+変更した場合、`PricingRegister/global_settings.py`内の変数`BIGQUERY_AUTH_PRM_KEY`と`SLACK_TOKEN_PRM_KEY`に反映する必要があります。
 
 - `PricingRegister/event_s3_upload.json`内のアップロードされたファイル名とS3バケット名を、ステップ4で使用したS3バケット名に変更する
 - 必要に応じて、AWS S3（S3バケット）およびGoogle Bigquery（project_id、dataset）に関連する変数の値を変更する
