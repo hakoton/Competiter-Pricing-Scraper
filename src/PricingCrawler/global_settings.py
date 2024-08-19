@@ -3,7 +3,7 @@ from crawler import (
     printpac_stickers_crawler,
     printpac_multi_stickers_crawler,
 )
-
+import os
 
 COMMAND_PRM_NAME = "TARGET"
 COMMAND_MAP: dict = {
@@ -12,5 +12,5 @@ COMMAND_MAP: dict = {
     "crawl_multi_sticker_prices_printpac": printpac_multi_stickers_crawler,
 }
 
-S3_PRICING_BUCKET_NAME = "mbs-for-test"
+S3_PRICING_BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
 S3_PRICING_SUBDIR_PATH = "pricing/"

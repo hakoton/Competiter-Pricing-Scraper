@@ -1,10 +1,11 @@
+import os
 # Singleton
 class GlobalSettings:
     _instance = None
 
     # AWS 関係
     AWS_REGION = "ap-northeast-1"
-    S3_PRICING_BUCKET_NAME = "mbs-for-test"
+    S3_PRICING_BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
     S3_PRICING_SUBDIR_PATH = "pricing/"
     # AWS SSM関連
     SSM_AUTH_PRM_KEY = "/mbs-new-pricing/auth/bigquery"
