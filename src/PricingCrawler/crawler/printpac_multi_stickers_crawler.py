@@ -80,6 +80,11 @@ def _filter_process_opts_on_paper_id(
             processing_opts_1,
             processing_opts_3,
         ],
+        "405": [  # PET
+            processing_opts_1,
+            processing_opts_2,
+            processing_opts_3,
+        ],
         "default": [
             processing_opts_1,
             processing_opts_2,
@@ -196,21 +201,25 @@ def _create_all_combinations(
     return combinations
 
 
-def _get_price(data: MultiStickerCombination) -> Response:
+def _get_price(data: MultiStickerCombination) -> Dict:
     url = "https://www.printpac.co.jp/contents/lineup/sticker_multi/ajax/get_price.php"
     headers: Dict[str, str] = {
         "Accept": "application/json, text/javascript, */*; q=0.01",
         "Content-Type": "application/x-www-form-urlencoded",
+        "Origin": "https://www.printpac.co.jp",
+        "Referer": "https://www.printpac.co.jp/contents/lineup/sticker_multi/",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "X-Requested-With": "XMLHttpRequest",
     }
     request_payload: MultiStickerRequestPayload = {
         "c_id": _set_category_id(data["print_color_id"]),
+        "irokazu_id": "1",  # 固定
+        "houhou_id": "2",  # 固定
         "size_id": data["size_id"],
+        "kami_mei_id": data["paper_id"],
         "kakou1_id": _set_kakou_id(
             data["processing_opt_id"], data["half_cut_amount_id"]
         ),
-        "kami_mei_id": data["paper_id"],
-        "houhou_id": "2",  # 固定
-        "irokazu_id": "1",  # 固定
         "tax_flag": False,
     }
     response: Response = requests.post(
@@ -219,7 +228,11 @@ def _get_price(data: MultiStickerCombination) -> Response:
         data=request_payload,
     )
     if response.ok:
-        return response
+        res_data = response.json()
+        if "tbody" not in res_data:
+            print(f"failed to fetch data: {request_payload} - Error {res_data}")
+            raise RuntimeWarning("COMBINATION_NOT_EXIST")
+        return res_data
 
     else:
         print("Request failed with status code:", response.status_code)
@@ -275,7 +288,7 @@ def _crawl_multi_sicker_prices(
             print("Progress: {}%".format((count * 10 / ten_pct)))
 
         try:
-            r: Response = _get_price(item)
+            r: Dict = _get_price(item)
             if r is None:
                 print("No data returned")
             else:
@@ -294,7 +307,7 @@ def _crawl_multi_sicker_prices(
                         }
                 }
                 """
-                res_data = r.json()["tbody"]["body"]
+                res_data = r["tbody"]["body"]
 
                 for unit in res_data:
                     for eigyo in res_data[unit]:

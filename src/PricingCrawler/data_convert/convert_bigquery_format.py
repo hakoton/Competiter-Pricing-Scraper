@@ -2,66 +2,27 @@ from typing import Match, Union, Dict
 import datetime
 import re
 from shared.constants import (
-    MULTI_STICKER_PID_TABLE,
-    STICKER_PID_TABLE,
     Lamination,
     Form,
-    Glue,
     Shape,
     Color,
     ProductCategory,
+)
+from shared.bigquery_mappings import (
+    yid_fixed,
+    oid1,
+    oid2,
+    oid3,
+    oid4_fixed,
+    shape,
+    color,
+    weight_fixed,
+    MULTI_STICKER_PID_TABLE,
+    STICKER_PID_TABLE,
     SEAL_PID_TABLE,
 )
 from shared.interfaces import MultiStickerPrice, PriceSchema, SealPrice, StickerPrice
 
-
-yid_fixed = 21  # 固定
-oid1: Dict[Union[Lamination, str], int] = {
-    Lamination.NO_LAMINATION: 1,
-    Lamination.GLOSSY_LAMINATED: 2,
-    Lamination.GLOSSY_LAMINATED_PP: 2,
-    Lamination.GLOSSY_LAMINATED_PP_WITH_WHITE_PLATE: 2,
-    Lamination.MATTE_LAMINATED: 5,
-    Lamination.MATTE_LAMINATED_PP: 5,
-    Lamination.MATTE_LAMINATED_PP_WITH_WHITE_PLATE: 5,
-    Lamination.EMBOSSED_LAMINATED: 1000,
-    # 以下の文字列は、利用可能なオプションではないため、ウェブサイト上の値と一致するかどうか検証されません。
-    Lamination.GLOSSY_LAMINATED_PVC: 3,
-    Lamination.GLOSSY_LAMINATED_PET: 4,
-    Lamination.MATTE_LAMINATED_PVC: 6,
-    Lamination.MATTE_LAMINATED_PET: 7,
-    Lamination.MATTE_LAMINATED_PET: 7,
-}
-oid2: Dict[Form, int] = {
-    Form.MULTI_SHEETS_ON_ONE: 80,
-    Form.ROSE_SQUARE_CUT: 81,
-    Form.ROSE_MOUNT_CUT: 82,
-    Form.ROLL_SEAL: 83,
-}
-oid3: Dict[Glue, int] = {
-    Glue.ORDINARY_GLUE: 1,
-    Glue.STRONG_ADHESIVE: 2,
-    Glue.CORRECTION_GLUE: 3,
-    Glue.REPEELABLE_GLUE: 4,
-    Glue.FROZEN_FOOD_PASTE: 5,
-    Glue.STRONG_ADHESIVE_FIBER_GLUE: 6,
-    Glue.FROZEN_GLUE: 7,
-}
-oid4_fixed = 1  # 固定
-
-shape: Dict[Union[Shape, str], int] = {
-    Shape.UNKNOWN: 0,
-    Shape.SQUARE: 1,
-    Shape.RECTANGLE: 2,
-    Shape.R_RECTANGLE: 3,
-    Shape.ROUND: 4,
-    Shape.OVAL: 5,
-    Shape.FREE: 6,
-    Shape.MULTI: 7,
-}
-
-color: Dict[Color, int] = {Color.FOUR_COLORS: 40, Color.FIVE_COLORS: 50}
-weight_fixed = 0  # 固定
 
 SCHEMA_SEAL: PriceSchema = {
     "yid": 0,
@@ -85,12 +46,22 @@ SCHEMA_SEAL: PriceSchema = {
 }
 
 
+def get_oid1(kakou: Lamination) -> int:
+    result = oid1.get(kakou, oid1[Lamination.NOT_FOUND])
+    if result == oid1[Lamination.NOT_FOUND]:
+        print(f"Process opt: {kakou} is not supported")
+    return result
+
+
 def get_shape(paper_shape: str) -> int:
     for member in Shape:
         if member.value in paper_shape:
             result: int = shape.get(member, shape[Shape.UNKNOWN])
+            if result == shape[Shape.UNKNOWN]:
+                print(f"Unknown Shape: {paper_shape}")
             return result
     # shapeが見つからない場合、UNKNOWNを返す
+    print(f"Unknown Shape: {paper_shape}")
     return shape[Shape.UNKNOWN]
 
 
@@ -137,6 +108,7 @@ def extract_seal_size(paper_shape: str) -> str:
         dimension: str = extracted_value[:2] + extracted_value[5:7]  # 6060
         return dimension
     else:
+        print(f"Unsupported seal's size: ${paper_shape}")
         return "Unknown"
 
 
@@ -187,7 +159,7 @@ def convert_seal_price_for_bigquery(
             item = raw_data[unit][eigyo]
             r: PriceSchema = SCHEMA_SEAL
             r["yid"] = yid_fixed
-            r["oid1"] = oid1.get(item["KAKOU"], oid1[Lamination.NO_LAMINATION])
+            r["oid1"] = get_oid1(item["KAKOU"])
             r["oid2"] = get_form(category)
             r["oid3"] = get_glue_id_seal(
                 item["PAPER_GROUP_ID"],
@@ -196,7 +168,16 @@ def convert_seal_price_for_bigquery(
             r["oid4"] = oid4_fixed
             r["shape"] = get_shape(item["SHAPE"])
             r["size"] = extract_seal_size(item["SHAPE"])
-            r["color"] = color[Color.FOUR_COLORS]
+            r["color"] = (
+                color[Color.FIVE_COLORS]
+                if item["KAKOU"]
+                in [
+                    Lamination.WHITE_PLATE,
+                    Lamination.GLOSSY_LAMINATED_PP_WITH_WHITE_PLATE,
+                    Lamination.MATTE_LAMINATED_PP_WITH_WHITE_PLATE,
+                ]
+                else color[Color.FOUR_COLORS]
+            )
             r["path"] = "0"
             r["is_variable"] = is_variable_in_size(category)
             r["pid"] = get_pid_seal(
@@ -215,17 +196,16 @@ def convert_seal_price_for_bigquery(
                 price  = キャンペーン価格
                 price2 = 定価
             """
-            price: int = item["price"]
-            price2: int = item["price2"]
+            price = int(item["price"])
+            price2 = int(item["price2"]) if item["price2"] is not None else None
             if price2 is None:
-                list_price: int = price
-                campaign_price: int = list_price
+                r["List_price"] = price
+                r["Actual_price"] = price
+                r["campaign_price"] = 0
             else:
-                list_price: int = price2
-                campaign_price: int = price
-            r["List_price"] = list_price
-            r["campaign_price"] = campaign_price
-            r["Actual_price"] = list_price
+                r["List_price"] = price2
+                r["Actual_price"] = price
+                r["campaign_price"] = price
 
             r["start_date"] = s_date
             index[0] += 1
@@ -246,7 +226,7 @@ def convert_sticker_price_for_bigquery(
             item: StickerPrice = raw_data[unit][eigyo]
             r: PriceSchema = SCHEMA_SEAL
             r["yid"] = yid_fixed
-            r["oid1"] = oid1.get(item["KAKOU_NAME"], oid1[Lamination.NO_LAMINATION])
+            r["oid1"] = get_oid1(item["KAKOU_NAME"])
             r["oid2"] = get_form(category)
             r["oid3"] = get_glue_id_sticker(item["MATERIAL_ID"])
             r["oid4"] = oid4_fixed
@@ -272,17 +252,16 @@ def convert_sticker_price_for_bigquery(
                 price  = キャンペーン価格
                 price2 = 定価
             """
-            price: int = int(item["price"])
-            price2: int = int(item["price2"])
+            price = int(item["price"])
+            price2 = int(item["price2"]) if item["price2"] is not None else None
             if price2 is None:
-                list_price: int = price
-                campaign_price: int = list_price
+                r["List_price"] = price
+                r["Actual_price"] = price
+                r["campaign_price"] = 0
             else:
-                list_price: int = price2
-                campaign_price: int = price
-            r["List_price"] = list_price
-            r["campaign_price"] = campaign_price
-            r["Actual_price"] = list_price
+                r["List_price"] = price2
+                r["Actual_price"] = price
+                r["campaign_price"] = price
 
             r["start_date"] = s_date
             index[0] += 1
@@ -303,7 +282,7 @@ def convert_multi_sticker_price_for_bigquery(
             item: MultiStickerPrice = raw_data[unit][eigyo]
             r: PriceSchema = SCHEMA_SEAL
             r["yid"] = yid_fixed
-            r["oid1"] = oid1.get(item["KAKOU_NAME"], oid1[Lamination.NO_LAMINATION])
+            r["oid1"] = get_oid1(item["KAKOU_NAME"])
             r["oid2"] = get_form(category)
             r["oid3"] = get_glue_id_multi_sticker(item["PAPER_ID"])
             r["oid4"] = oid4_fixed
@@ -331,17 +310,16 @@ def convert_multi_sticker_price_for_bigquery(
                 price  = キャンペーン価格
                 price2 = 定価
             """
-            price: int = int(item["price"])
-            price2: int = int(item["price2"])
+            price = int(item["price"])
+            price2 = int(item["price2"]) if item["price2"] is not None else None
             if price2 is None:
-                list_price: int = price
-                campaign_price: int = list_price
+                r["List_price"] = price
+                r["Actual_price"] = price
+                r["campaign_price"] = 0
             else:
-                list_price: int = price2
-                campaign_price: int = price
-            r["List_price"] = list_price
-            r["campaign_price"] = campaign_price
-            r["Actual_price"] = list_price
+                r["List_price"] = price2
+                r["Actual_price"] = price
+                r["campaign_price"] = price
 
             r["start_date"] = s_date
             index[0] += 1

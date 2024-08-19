@@ -1,3 +1,4 @@
+from typing import List
 from google.cloud import bigquery
 from google.cloud.bigquery.table import RowIterator
 from google.oauth2 import service_account
@@ -79,3 +80,165 @@ class PricingQuery:
 
     def execute_query_wait(self, query: str) -> RowIterator:
         return self.cli.query_and_wait(query)
+
+    # () => List[PriceDiff]
+    def get_price_change(self, current_table_name: str, new_table_name: str) -> List:
+        raw_query = """
+        WITH old_data AS (
+          SELECT 
+            CONCAT(
+              CAST(oid1 AS STRING), 
+              '_', 
+              CAST(oid2 AS STRING), 
+              '_', 
+              CAST(oid3 AS STRING), 
+              '_', 
+              CAST(shape AS STRING), 
+              '_', 
+              CAST(size AS STRING), 
+              '_', 
+              CAST(color AS STRING), 
+              '_', 
+              CAST(path AS STRING), 
+              '_', 
+              CAST(pid AS STRING), 
+              '_', 
+              CAST(day AS STRING), 
+              '_', 
+              CAST(`set` AS STRING)
+            ) AS composite_key, 
+            campaign_price as old_campaign_price, 
+            Actual_price as old_actual_price, 
+            List_price as old_list_price 
+          FROM 
+            `{current_table_name}`
+        ), 
+        new_data AS (
+          SELECT 
+            CONCAT(
+              CAST(oid1 AS STRING), 
+              '_', 
+              CAST(oid2 AS STRING), 
+              '_', 
+              CAST(oid3 AS STRING), 
+              '_', 
+              CAST(shape AS STRING), 
+              '_', 
+              CAST(size AS STRING), 
+              '_', 
+              CAST(color AS STRING), 
+              '_', 
+              CAST(path AS STRING), 
+              '_', 
+              CAST(pid AS STRING), 
+              '_', 
+              CAST(day AS STRING), 
+              '_', 
+              CAST(`set` AS STRING)
+            ) AS composite_key, 
+            campaign_price AS new_campaign_price, 
+            Actual_price as new_actual_price, 
+            List_price as new_list_price 
+          FROM 
+            `{new_table_name}`
+        ) 
+        SELECT 
+          old_data.composite_key AS composite_key,
+          old_data.old_campaign_price,
+          old_data.old_actual_price,
+          old_data.old_list_price,
+          new_data.new_campaign_price,
+          new_data.new_actual_price,
+          new_data.new_list_price
+        FROM 
+          old_data 
+          JOIN new_data ON old_data.composite_key = new_data.composite_key 
+        WHERE 
+          (
+            old_data.old_campaign_price != new_data.new_campaign_price 
+            OR old_data.old_actual_price != new_data.new_actual_price 
+            OR old_data.old_list_price != new_data.new_list_price
+          )
+        """
+
+        query: str = raw_query.replace(
+            "{current_table_name}", current_table_name
+        ).replace("{new_table_name}", new_table_name)
+
+        row_iterator = self.cli.query_and_wait(query)
+        data = [dict(row) for row in row_iterator]
+        return data
+
+    def update_price_changed_items(self, current_table_name, new_table_name) -> None:
+        raw_query: str = """
+        UPDATE
+          `{current_table_name}` AS target
+        SET
+          target.campaign_price = source.new_campaign_price,
+          target.Actual_price = source.new_actual_price,
+          target.List_price = source.new_list_price,
+          target.start_date = source.start_date
+        FROM
+          (
+            SELECT
+              CONCAT(
+                CAST(oid1 AS STRING),
+                '_',
+                CAST(oid2 AS STRING),
+                '_',
+                CAST(oid3 AS STRING),
+                '_',
+                CAST(shape AS STRING),
+                '_',
+                CAST(size AS STRING),
+                '_',
+                CAST(color AS STRING),
+                '_',
+                CAST(path AS STRING),
+                '_',
+                CAST(pid AS STRING),
+                '_',
+                CAST(day AS STRING),
+                '_',
+                CAST(`set` AS STRING)
+              ) AS composite_key,
+              campaign_price AS new_campaign_price,
+              List_price as new_list_price,
+              Actual_price as new_actual_price,
+              start_date
+            FROM
+              `{new_table_name}`
+          ) AS source
+        WHERE
+          CONCAT(
+            CAST(target.oid1 AS STRING),
+            '_',
+            CAST(target.oid2 AS STRING),
+            '_',
+            CAST(target.oid3 AS STRING),
+            '_',
+            CAST(target.shape AS STRING),
+            '_',
+            CAST(target.size AS STRING),
+            '_',
+            CAST(target.color AS STRING),
+            '_',
+            CAST(target.path AS STRING),
+            '_',
+            CAST(target.pid AS STRING),
+            '_',
+            CAST(target.day AS STRING),
+            '_',
+            CAST(target.`set` AS STRING)
+          ) = source.composite_key
+          AND (
+            target.campaign_price != source.new_campaign_price
+            OR target.List_price != source.new_List_price
+            OR target.Actual_price != source.new_Actual_price
+          )
+        """
+
+        query: str = raw_query.replace(
+            "{current_table_name}", current_table_name
+        ).replace("{new_table_name}", new_table_name)
+        self.cli.query_and_wait(query)
