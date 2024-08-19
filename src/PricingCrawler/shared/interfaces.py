@@ -73,7 +73,7 @@ class SealPrice(TypedDict):
     # サーバーからのレスポンス
     s_id: str
     price: int
-    price2: int
+    price2: Union[str, None]
     irokazu_id: str
 
     # 追加
@@ -150,7 +150,7 @@ class StickerPrice(TypedDict):
     s_id: str
     t_id: str
     price: str
-    price2: str
+    price2: Union[str, None]
     tax: int
     tax2: int
 
@@ -201,7 +201,7 @@ class MultiStickerPrice(TypedDict):
     s_id: str
     t_id: str
     price: str
-    price2: str
+    price2: Union[str, None]
     tax: int
     tax2: int
 
@@ -215,3 +215,13 @@ class MultiStickerPrice(TypedDict):
     PAPER_ID: str
     COLOR_ID: str
     HALF_CUT: str
+
+
+class PriceDiff(TypedDict):
+    composite_key: str
+    old_list_price: int
+    new_list_price: int
+    old_actual_price: int
+    new_actual_price: int
+    old_campaign_price: int
+    new_campaign_price: int

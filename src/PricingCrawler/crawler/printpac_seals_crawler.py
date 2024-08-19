@@ -8,7 +8,8 @@ from typing import Any, List, Union, Dict
 from bs4 import BeautifulSoup, NavigableString, Tag, ResultSet
 import time
 
-from shared.constants import SEAL_PID_TABLE, Lamination
+from shared.bigquery_mappings import SEAL_PID_TABLE
+from shared.constants import Lamination
 from shared.interfaces import (
     LabelSealRequestPayload,
     OptionInfo,
@@ -205,11 +206,14 @@ def _get_all_print_papers(html: BeautifulSoup) -> List[OptionInfo]:
 """ SECTION ENDED """
 
 
-def _get_price(data) -> Response:
+def _get_price(data) -> Dict:
     url = "https://www.printpac.co.jp/contents/lineup/seal/ajax/get_price.php"
     headers: Dict[str, str] = {
         "Accept": "application/json, text/javascript, */*; q=0.01",
         "Content-Type": "application/x-www-form-urlencoded",
+        "Origin": "https://www.printpac.co.jp",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "X-Requested-With": "XMLHttpRequest",
     }
 
     request_payload: LabelSealRequestPayload = {
@@ -225,7 +229,11 @@ def _get_price(data) -> Response:
         data=request_payload,
     )
     if response.ok:
-        return response
+        res_data = response.json()
+        if "tbody" not in res_data:
+            print(f"failed to fetch data: {request_payload} - Error {res_data}")
+            raise RuntimeWarning("COMBINATION_NOT_EXIST")
+        return res_data
 
     else:
         print("Request failed with status code:", response.status_code)
@@ -324,11 +332,11 @@ def _crawl_label_seal_prices(
             print("Progress: {}%".format((count * 10 / ten_pct)))
 
         try:
-            r: Response = _get_price(item)
+            r: Dict = _get_price(item)
             if r is None:
                 print("No data returned")
             else:
-                res_data: Dict[str, Dict[str, SealPrice]] = r.json()["tbody"]["body"]
+                res_data: Dict[str, Dict[str, SealPrice]] = r["tbody"]["body"]
 
                 for unit in res_data:
                     for eigyo in res_data[unit]:

@@ -11,9 +11,13 @@ class GlobalSettings:
     SSM_AUTH_PRM_KEY = "/mbs-new-pricing/auth/bigquery"
 
     # BiqQuery 関係
-    BQ_PROJECT_ID = "raksul-429806"
+    BQ_PROJECT_ID = "eighth-opus-428209-f0"
     BQ_DATASET_ID = "lake_competitor"
     DEBUG_S3_NO_STREAM = False
+
+    # Slack 関係
+    SLACK_TOKEN = ""
+    SLACK_CHANNEL_ID = ""
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
