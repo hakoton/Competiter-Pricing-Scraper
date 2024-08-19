@@ -29,21 +29,21 @@ class PricingQuery:
     cli: bigquery.Client
     gs: GlobalSettings
 
-    def __init__(self, settings: GlobalSettings, credentials: dict = {}) -> None:
+    def __init__(self, settings: GlobalSettings) -> None:
         """AWS SSMから認証情報を取得してBigQuery環境へ繋ぎこみを行う
         parameters
             credentials:
                 Raksul環境以外で疎通したい場合はここに直接認証情報のJsonオブジェクトを入れてください
                 こちらで指定した認証先への接続を優先して接続を行います
         """
-        self.ssm: ssm_manager.Ssm = ssm_manager.Ssm(settings, credentials)
+        self.ssm: ssm_manager.Ssm = ssm_manager.Ssm(settings)
         self.settings: GlobalSettings = settings
         self.__connect()
 
     def __connect(self) -> None:
         creds: service_account.Credentials = (
             service_account.Credentials.from_service_account_info(
-                self.ssm.get_cred()
+                self.ssm.get_bigquery_cred()
             ).with_scopes(["https://www.googleapis.com/auth/bigquery"])
         )
 
