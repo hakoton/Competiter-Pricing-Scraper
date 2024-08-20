@@ -12,7 +12,7 @@ parallel = true
 [default.deploy.parameters]
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
-parameter_overrides = "S3BucketName=\"raksul-bucket\""
+parameter_overrides = "S3BucketName=\"raksul-price-list\""
 resolve_s3 = true
 s3_prefix = "raksul-pricing-scraper"
 image_repositories = []
