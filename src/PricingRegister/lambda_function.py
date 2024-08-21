@@ -20,7 +20,7 @@ def lambda_handler(event: Dict, context):
                     }
                 }
             }
-         ]
+        ]
     }
     """
 

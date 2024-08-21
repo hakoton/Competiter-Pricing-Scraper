@@ -1,0 +1,60 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Parameters:
+  S3BucketName:
+    Type: String
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: "s3:ObjectCreated:*"
+            Function: !GetAtt PricingRegister.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value: ".json"
+    DependsOn: PricingRegisterFunctionPermission
+  PricingRegisterFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt PricingRegister.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub "arn:aws:s3:::${S3BucketName}"
+  PricingCrawler:
+    Type: AWS::Serverless::Function
+    Properties:
+      Environment:
+        Variables:
+          S3_BUCKET_NAME: !Ref S3BucketName
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref S3BucketName
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.8
+      CodeUri: ./PricingCrawler
+      Description: PriceCrawler
+      MemorySize: 256
+      Timeout: 800
+  PricingRegister:
+    Type: AWS::Serverless::Function
+    Properties:
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref S3BucketName
+        - SSMParameterReadPolicy:
+            ParameterName: "mbs-new-pricing/auth/bigquery"
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.8
+      CodeUri: ./PricingRegister
+      Description: PricingRegister
+      MemorySize: 256
+      Timeout: 800
+Outputs:
+  S3Bucket:
+    Description: "S3 Bucket"
+    Value: !Ref S3Bucket
