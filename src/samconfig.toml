@@ -16,3 +16,6 @@ parameter_overrides = "S3BucketName=\"raksul-price-list\""
 resolve_s3 = true
 s3_prefix = "raksul-pricing-scraper"
 image_repositories = []
+
+[default.local_invoke.parameters]
+parameter_overrides = "S3BucketName=\"raksul-price-list\""
