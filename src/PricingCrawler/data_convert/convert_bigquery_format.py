@@ -1,6 +1,7 @@
 from typing import Match, Union, Dict
 import datetime
 import re
+import math
 from shared.constants import (
     MULTI_STICKER_PID_TABLE,
     STICKER_PID_TABLE,
@@ -346,5 +347,75 @@ def convert_multi_sticker_price_for_bigquery(
             r["start_date"] = s_date
             index[0] += 1
             records[index[0]] = r.copy()
+
+    return records
+
+
+def convert_ondemand_envelope_price_for_bigquery(
+    raw_data,
+    index
+) -> Dict:
+    records: Dict = {}
+    s_date: str = datetime.date.today().strftime("%Y-%m-%d")
+
+    request = raw_data["body"]
+    oid_map = {
+        1: ["204", "351", "352", "223"],
+        2: ["203", "350"]
+    }
+    sid_map = {
+        28: ["63"],
+        33: ["67"]
+    }
+    pid_map = {
+        106: ["204", "203"],
+        105: ["350", "351"],
+        294: ["352"],
+        169: ["223"]
+    }
+    weight_map = {
+        85: ["204", "203"],
+        80: ["350", "351"],
+        100: ["352", "223"]
+    }
+
+    color_map = {
+        # 片面スミ一色
+        10: [5],
+        # 両面スミ一色
+        11: [6],
+        # 片面4色
+        40: [1],
+        # 表4色裏1色
+        41: [2],
+        # 両面4色
+        44: [4]
+    }
+    r: PriceSchema = SCHEMA_SEAL
+    r["yid"] = 7
+    r["oid1"] = next((k for k, v in oid_map.items() if request["kami_mei_id"] in v), None)
+    r["oid2"] = 1
+    r["oid3"] = 4
+    r["oid4"] = 1
+    r["sid"] = next((k for k, v in sid_map.items() if request["size_id"] in v), None)
+    r["pid"] = next((k for k, v in pid_map.items() if request["kami_mei_id"] in v), None)
+    r["print_method"] = 2
+    r["weight"] = next((k for k, v in weight_map.items() if request["kami_mei_id"] in v), None)
+    res_data = raw_data["tbody"]["body"]
+    for unit in res_data:
+        for eigyo in res_data[unit]:
+            for color in res_data[unit][eigyo]:
+                item = res_data[unit][eigyo][color]
+                r["day"] = int(eigyo)
+                r["set"] = int(unit)
+                r["color"] = next((k for k, v in color_map.items() if int(color) in v), None)
+                tax_excluded_price: int = math.ceil(int(item["price"]) / 1.1) # 税抜き価格
+                r["List_price"] = tax_excluded_price
+                r["campaign_price"] = tax_excluded_price
+                r["Actual_price"] = tax_excluded_price
+
+                r["start_date"] = s_date
+                index[0] += 1
+                records[index[0]] = r.copy()
 
     return records

@@ -1,4 +1,4 @@
-from typing import TypedDict, Union
+from typing import TypedDict, Union, List
 
 
 class PriceSchema(TypedDict):
@@ -213,3 +213,17 @@ class MultiStickerPrice(TypedDict):
     PAPER_ID: str
     COLOR_ID: str
     HALF_CUT: str
+
+# 小ロットオンデマンド封筒
+class OndemandEnvelopeRequestPayload(TypedDict):
+    category: str
+    size: str
+    color: List[str]
+    paper: str
+    kakou1: str
+    printing: str
+    tax_flag: bool
+class OndemandEnvelopeCombination(TypedDict):
+    size_id: str
+    color_ids: List[str]
+    paper_id: str
