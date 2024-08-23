@@ -11,7 +11,7 @@ class GlobalSettings:
     BIGQUERY_AUTH_PRM_KEY = "/mbs-new-pricing/auth/bigquery"
 
     # BiqQuery 関係
-    BQ_PROJECT_ID = "eighth-opus-428209-f0"
+    BQ_PROJECT_ID = ""
     BQ_DATASET_ID = "lake_competitor"
     DEBUG_S3_NO_STREAM = False
 
