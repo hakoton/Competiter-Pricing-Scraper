@@ -21,6 +21,24 @@ class PriceSchema(TypedDict):
     Actual_price: int
     start_date: str
 
+class EnvelopePriceSchema(TypedDict):
+    yid: int
+    oid1: int
+    oid2: int
+    oid3: int
+    oid4: int
+    sid: str
+    color: int
+    pid: int
+    print_method: int
+    weight: int
+    day: int
+    set: int
+    List_price: int
+    campaign_price: int
+    Actual_price: int
+    start_date: str
+
 
 class OptionInfo(TypedDict):
     id: str

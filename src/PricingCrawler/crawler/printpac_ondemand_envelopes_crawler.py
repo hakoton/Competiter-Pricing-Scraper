@@ -94,18 +94,7 @@ def _get_all_papers(html: BeautifulSoup) -> List[OptionInfo]:
 
 # 色数
 def _get_all_colors(html: BeautifulSoup) -> List[OptionInfo]:
-    # [
-    # {"id": "1", "name": "color"}, # モノクロ（スミ1色）印刷
-    # {"id": "2", "name": "color"}, # フルカラー印刷
-    # ]
     colors: List[OptionInfo] = []
-    # HTML解析
-    # elements: ResultSet[Tag] = html.find_all("input", type="radio")
-    # for input in elements:
-    #     name: str = get_first_value_by_attr(input, "name")
-    #     if name == "color":
-    #         id: str = get_first_value_by_attr(input, "value")
-    #         colors.append({"id": id, "name": name})
     # APIから取得
     colors = [
         {"id": [5, 6], "name": "color"}, # モノクロ（スミ1色）印刷
@@ -113,10 +102,7 @@ def _get_all_colors(html: BeautifulSoup) -> List[OptionInfo]:
     ]
     return colors
 
-# 納期はリクエストに含まれないため、この関数は不要
-# def _get_all_days(html: BeautifulSoup) -> List[OptionInfo]:
-#     days: List[OptionInfo] = []
-#     return days
+# 納期はリクエストに含まれないため、関数は不要
 
 """ SECTION ENDED """
 
@@ -128,7 +114,6 @@ def _create_all_combinations(
 ) -> List[OndemandEnvelopeCombination]:
     combinations: List[OndemandEnvelopeCombination] = []
 
-# ここちゃんと確認
     for size_id in extract_id(all_sizes):
         for color_ids in extract_id(all_colors):
             for paper_id in extract_id(all_papers):
@@ -240,34 +225,9 @@ def _crawl_ondemand_envelope_prices(
                         }
                 }
                 """
-                # res_data = r.json()["tbody"]["body"]
-
-                # for unit in res_data:
-                #     for eigyo in res_data[unit]:
-                #         # TODO:　なぜ”１”が存在する
-                #         price: MultiStickerPrice = res_data[unit][eigyo]["1"]
-                #         price["KAKOU"] = item["processing_opt_id"]
-                #         price["KAKOU_NAME"] = item["processing_opt_name"]
-                #         price["UNIT"] = unit
-                #         price["SHAPE"] = "multi"
-                #         price["SIZE_ID"] = item["size_id"]
-                #         price["PAPER_ID"] = item["paper_id"]
-                #         price["HALF_CUT"] = item["half_cut_amount_id"]
-                #         price["COLOR_ID"] = item["print_color_id"]
-                #         price["eigyo"] = eigyo
-                #         # Override "1" object with information
-                #         res_data[unit][eigyo] = price
-
-                # bigquery用に整形
-                # class ProductCategory(Enum):
-                #     SEAL = 1
-                #     STICKER = 2
-                #     MULTI_STICKER = 3
-                # print("res_data!!!!".res_data)
                 converted_data = convert_ondemand_envelope_price_for_bigquery(
                     r.json(),
                     idx
-                    # 1, json, [0]
                 )
 
                 buffer += json.dumps(converted_data)[1:-1]  # ブラケットを外す

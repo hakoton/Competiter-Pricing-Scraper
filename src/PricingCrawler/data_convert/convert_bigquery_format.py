@@ -12,8 +12,13 @@ from shared.constants import (
     Color,
     ProductCategory,
     SEAL_PID_TABLE,
+    ENVELOPE_OID1_TABLE,
+    ENVELOPE_SID_TABLE,
+    ENVELOPE_PID_TABLE,
+    ENVELOPE_WEIGHT_TABLE,
+    ENVELOPE_COLOR_TABLE
 )
-from shared.interfaces import MultiStickerPrice, PriceSchema, SealPrice, StickerPrice
+from shared.interfaces import MultiStickerPrice, PriceSchema, EnvelopePriceSchema, SealPrice, StickerPrice
 
 
 yid_fixed = 21  # 固定
@@ -85,6 +90,24 @@ SCHEMA_SEAL: PriceSchema = {
     "start_date": "2024-06-20",
 }
 
+SCHEMA_ONDEMEND_ENVELOPE: EnvelopePriceSchema = {
+    "yid": 7, # 部分印刷封筒
+    "oid1": 0,
+    "oid2": 1, # 窓なし
+    "oid3": 4, # テープなし
+    "oid4": 1, # 利用していないため1固定
+    "sid": 0,
+    "color": 0,
+    "pid": 0,
+    "print_method": 2, # オンデマンド印刷
+    "weight": 0,
+    "day": 0,
+    "set": 0,
+    "List_price": 0,
+    "campaign_price": 0,
+    "Actual_price": 0,
+    "start_date": "2024-06-20",
+}
 
 def get_shape(paper_shape: str) -> int:
     for member in Shape:
@@ -359,48 +382,12 @@ def convert_ondemand_envelope_price_for_bigquery(
     s_date: str = datetime.date.today().strftime("%Y-%m-%d")
 
     request = raw_data["body"]
-    oid_map = {
-        1: ["204", "351", "352", "223"],
-        2: ["203", "350"]
-    }
-    sid_map = {
-        28: ["63"],
-        33: ["67"]
-    }
-    pid_map = {
-        106: ["204", "203"],
-        105: ["350", "351"],
-        294: ["352"],
-        169: ["223"]
-    }
-    weight_map = {
-        85: ["204", "203"],
-        80: ["350", "351"],
-        100: ["352", "223"]
-    }
-
-    color_map = {
-        # 片面スミ一色
-        10: [5],
-        # 両面スミ一色
-        11: [6],
-        # 片面4色
-        40: [1],
-        # 表4色裏1色
-        41: [2],
-        # 両面4色
-        44: [4]
-    }
-    r: PriceSchema = SCHEMA_SEAL
-    r["yid"] = 7
-    r["oid1"] = next((k for k, v in oid_map.items() if request["kami_mei_id"] in v), None)
-    r["oid2"] = 1
-    r["oid3"] = 4
-    r["oid4"] = 1
-    r["sid"] = next((k for k, v in sid_map.items() if request["size_id"] in v), None)
-    r["pid"] = next((k for k, v in pid_map.items() if request["kami_mei_id"] in v), None)
-    r["print_method"] = 2
-    r["weight"] = next((k for k, v in weight_map.items() if request["kami_mei_id"] in v), None)
+    r: EnvelopePriceSchema = SCHEMA_ONDEMEND_ENVELOPE
+    # mappingからraksul用のIDを取得、登録
+    r["oid1"] = next((k for k, v in ENVELOPE_OID1_TABLE.items() if request["kami_mei_id"] in v), None)
+    r["sid"] = next((k for k, v in ENVELOPE_SID_TABLE.items() if request["size_id"] in v), None)
+    r["pid"] = next((k for k, v in ENVELOPE_PID_TABLE.items() if request["kami_mei_id"] in v), None)
+    r["weight"] = next((k for k, v in ENVELOPE_WEIGHT_TABLE.items() if request["kami_mei_id"] in v), None)
     res_data = raw_data["tbody"]["body"]
     for unit in res_data:
         for eigyo in res_data[unit]:
@@ -408,7 +395,7 @@ def convert_ondemand_envelope_price_for_bigquery(
                 item = res_data[unit][eigyo][color]
                 r["day"] = int(eigyo)
                 r["set"] = int(unit)
-                r["color"] = next((k for k, v in color_map.items() if int(color) in v), None)
+                r["color"] = next((k for k, v in ENVELOPE_COLOR_TABLE.items() if int(color) in v), None)
                 tax_excluded_price: int = math.ceil(int(item["price"]) / 1.1) # 税抜き価格
                 r["List_price"] = tax_excluded_price
                 r["campaign_price"] = tax_excluded_price

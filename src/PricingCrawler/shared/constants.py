@@ -1,4 +1,4 @@
-from typing import Dict, Any, TypedDict
+from typing import Dict, Any, TypedDict, List
 from enum import Enum
 
 from shared.interfaces import StickerSizeInfo
@@ -168,3 +168,119 @@ MULTI_STICKER_PID_TABLE: Dict[int, PidAndGlueInfo] = {
     405: {"pid": 224, "glue_type": Glue.ORDINARY_GLUE},  # PET
     409: {"pid": 1001, "glue_type": Glue.ORDINARY_GLUE},  # 塩ビ（ツヤlite）
 }
+
+"""
+以下は封筒に関する定義とマッピング
+https://www.printpac.co.jp/contents/lineup/ondemand_envelope/price.php
+https://www.printpac.co.jp/contents/lineup/envelope/price.php
+"""
+# ラクスルのID
+class EnvelopeOidRaksul(Enum):
+    POSTAL_CODE_INCLUDE = 1
+    POSTAL_CODE_NONE = 2
+class EnvelopeSidRaksul(Enum):
+    NAGA3 = 28
+    KAKU2 = 33
+class EnvelopePidRaksul(Enum):
+    KRAFT = 106
+    WHITE_KENT = 105
+    WHITE_KENT100 = 294
+    PRIVACY = 169
+class EnvelopeColorRaksul(Enum):
+    SINGLE_MONOCHROME = 10  # 片面スミ一色
+    DOUBLE_MONOCHROME = 11  # 両面スミ一色
+    SINGLE_COLOR = 40       # 片面4色
+    COLOR_MONOCHROME = 41   # 表4色裏1色
+    DOUBLE_COLOR = 44       # 両面4色
+
+# プリントパックのID
+class EnvelopePaperPrintpac(Enum):
+    KRAFT85_POSTAL_CODE_NONE = 204
+    KRAFT85_POSTAL_CODE_INCLUDE = 203
+    WHITE_KENT80_POSTAL_CODE_NONE = 351
+    WHITE_KENT80_POSTAL_CODE_INCLUDE = 350
+    WHITE_KENT100_POSTAL_CODE_NONE = 352
+    PRIVACY100_POSTAL_CODE_NONE = 223
+class EnvelopeSizePrintpac(Enum):
+    NAGA3 = 63
+    KAKU2 = 67
+class EnvelopeColorPrintpac(Enum):
+    SINGLE_MONOCHROME = 5   # 片面スミ一色
+    DOUBLE_MONOCHROME = 6   # 両面スミ一色
+    SINGLE_COLOR = 1        # 片面4色
+    COLOR_MONOCHROME = 2    # 表4色裏1色
+    DOUBLE_COLOR = 4        # 両面4色
+
+# ラクスルIDとプリントパックIDのマッピング
+ENVELOPE_OID1_TABLE: Dict[int, List[str]] = {
+    EnvelopeOidRaksul.POSTAL_CODE_NONE: [
+        EnvelopePaperPrintpac.KRAFT85_POSTAL_CODE_NONE,
+        EnvelopePaperPrintpac.WHITE_KENT80_POSTAL_CODE_NONE,
+        EnvelopePaperPrintpac.WHITE_KENT100_POSTAL_CODE_NONE,
+        EnvelopePaperPrintpac.PRIVACY100_POSTAL_CODE_NONE,
+    ],
+    EnvelopeOidRaksul.POSTAL_CODE_INCLUDE: [
+        EnvelopePaperPrintpac.KRAFT85_POSTAL_CODE_INCLUDE,
+        EnvelopePaperPrintpac.WHITE_KENT80_POSTAL_CODE_INCLUDE,
+    ],
+}
+
+ENVELOPE_SID_TABLE: Dict[int, Dict[int, List[str]]] = {
+    EnvelopeSidRaksul.NAGA3: [
+        EnvelopeSizePrintpac.NAGA3,
+    ],
+    EnvelopeSidRaksul.KAKU2: [
+        EnvelopeSizePrintpac.KAKU2,
+    ],
+}
+
+ENVELOPE_PID_TABLE: Dict[int, Dict[int, List[str]]] = {
+    EnvelopePidRaksul.KRAFT: [
+        EnvelopePaperPrintpac.KRAFT85_POSTAL_CODE_NONE,
+        EnvelopePaperPrintpac.KRAFT85_POSTAL_CODE_INCLUDE,
+    ],
+    EnvelopePidRaksul.WHITE_KENT: [
+        EnvelopePaperPrintpac.WHITE_KENT80_POSTAL_CODE_NONE,
+        EnvelopePaperPrintpac.WHITE_KENT80_POSTAL_CODE_INCLUDE,
+    ],
+    EnvelopePidRaksul.WHITE_KENT100: [
+        EnvelopePaperPrintpac.WHITE_KENT100_POSTAL_CODE_NONE,
+    ],
+    EnvelopePidRaksul.PRIVACY: [
+        EnvelopePaperPrintpac.PRIVACY100_POSTAL_CODE_NONE,
+    ],
+}
+
+ENVELOPE_WEIGHT_TABLE: Dict[int, List[str]] = {
+    85: [
+        EnvelopePaperPrintpac.KRAFT85_POSTAL_CODE_NONE,
+        EnvelopePaperPrintpac.KRAFT85_POSTAL_CODE_INCLUDE,
+    ],
+    80: [
+        EnvelopePaperPrintpac.WHITE_KENT80_POSTAL_CODE_NONE,
+        EnvelopePaperPrintpac.WHITE_KENT80_POSTAL_CODE_INCLUDE,
+    ],
+    100:[
+        EnvelopePaperPrintpac.WHITE_KENT100_POSTAL_CODE_NONE,
+        EnvelopePaperPrintpac.PRIVACY100_POSTAL_CODE_NONE,
+    ]
+}
+
+ENVELOPE_COLOR_TABLE: Dict[int, List[str]] = {
+    EnvelopeColorRaksul.SINGLE_MONOCHROME: [
+        EnvelopeColorPrintpac.SINGLE_MONOCHROME
+    ],
+    EnvelopeColorRaksul.DOUBLE_MONOCHROME: [
+        EnvelopeColorPrintpac.DOUBLE_MONOCHROME
+    ],
+    EnvelopeColorRaksul.SINGLE_COLOR: [
+        EnvelopeColorPrintpac.SINGLE_COLOR
+    ],
+    EnvelopeColorRaksul.COLOR_MONOCHROME: [
+        EnvelopeColorPrintpac.COLOR_MONOCHROME
+    ],
+    EnvelopeColorRaksul.DOUBLE_COLOR: [
+        EnvelopeColorPrintpac.DOUBLE_COLOR
+    ]
+}
+
