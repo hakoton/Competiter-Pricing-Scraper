@@ -175,9 +175,15 @@ https://www.printpac.co.jp/contents/lineup/ondemand_envelope/price.php
 https://www.printpac.co.jp/contents/lineup/envelope/price.php
 """
 # ラクスルのID
-class EnvelopeOidRaksul(Enum):
-    POSTAL_CODE_INCLUDE = 1
-    POSTAL_CODE_NONE = 2
+class EnvelopeOid1Raksul(Enum):
+    POSTAL_CODE_INCLUDE = 2
+    POSTAL_CODE_NONE = 1
+class EnvelopeOid2Raksul(Enum):
+    WINDOW_NONE = 1
+    WINDOW_INCLUDE = 2
+class EnvelopeOid3Raksul(Enum):
+    TAPE_INCLUDE = 3
+    TAPE_NONE = 4
 class EnvelopeSidRaksul(Enum):
     NAGA3 = 28
     KAKU2 = 33
@@ -213,13 +219,13 @@ class EnvelopeColorPrintpac(Enum):
 
 # ラクスルIDとプリントパックIDのマッピング
 ENVELOPE_OID1_TABLE: Dict[int, List[str]] = {
-    EnvelopeOidRaksul.POSTAL_CODE_NONE: [
+    EnvelopeOid1Raksul.POSTAL_CODE_NONE: [
         EnvelopePaperPrintpac.KRAFT85_POSTAL_CODE_NONE,
         EnvelopePaperPrintpac.WHITE_KENT80_POSTAL_CODE_NONE,
         EnvelopePaperPrintpac.WHITE_KENT100_POSTAL_CODE_NONE,
         EnvelopePaperPrintpac.PRIVACY100_POSTAL_CODE_NONE,
     ],
-    EnvelopeOidRaksul.POSTAL_CODE_INCLUDE: [
+    EnvelopeOid1Raksul.POSTAL_CODE_INCLUDE: [
         EnvelopePaperPrintpac.KRAFT85_POSTAL_CODE_INCLUDE,
         EnvelopePaperPrintpac.WHITE_KENT80_POSTAL_CODE_INCLUDE,
     ],
