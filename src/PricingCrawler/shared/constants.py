@@ -1,4 +1,4 @@
-from typing import Dict, Any, TypedDict
+from typing import TypedDict
 from enum import Enum
 
 
@@ -63,17 +63,3 @@ class ProductCategory(Enum):
 class PidAndGlueInfo(TypedDict):
     pid: int
     glue_type: Glue
-
-
-"""
-印刷用紙IDと対応する用紙IDのマッピング
-https://www.printpac.co.jp/contents/lineup/seal/js/size.js?20240612164729
-{
-    [paper_group_id]: {
-        [paper_id]: {
-            "pid": int,
-            "glue_type": Glue
-        }
-    }
-}
-"""

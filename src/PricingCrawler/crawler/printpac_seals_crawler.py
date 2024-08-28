@@ -72,7 +72,6 @@ def _filter_pp_process_options_by_print_paper(paper_group_id: str) -> List:
     加工のオプション
     デフォルトオプション: ラミネートなし
     """
-    # process_options: List[int] = [SealProcessId[Lamination.NO_LAMINATION]]
     process_options = [
         {
             "id": SealProcessId[Lamination.NO_LAMINATION],
