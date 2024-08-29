@@ -9,7 +9,8 @@ from bs4 import BeautifulSoup, Tag, ResultSet
 from aws.s3 import S3_Client
 
 from data_convert.convert_bigquery_format import convert_sticker_price_for_bigquery
-from shared.constants import STICKER_SIZE_TABLE, ProductCategory
+from shared.bigquery_mappings import STICKER_SIZE_TABLE
+from shared.constants import Lamination, ProductCategory
 from shared.interfaces import (
     OptionInfo,
     StickerSizeInfo,
@@ -86,10 +87,10 @@ def _set_paper_id(material_id: str) -> str:
 def _filter_process_opts_on_paper_material(
     material_id: str,
 ) -> List[OptionInfo]:
-    processing_opts_1: OptionInfo = {"id": "1", "name": "つや ラミネート"}
-    processing_opts_2: OptionInfo = {"id": "2", "name": "マット ラミネート"}
-    processing_opts_3: OptionInfo = {"id": "3", "name": "エンボス ラミネート"}
-    processing_opts_4: OptionInfo = {"id": "4", "name": "ラミネートなし"}
+    processing_opts_1: OptionInfo = {"id": "1", "name": Lamination.GLOSSY_LAMINATED}
+    processing_opts_2: OptionInfo = {"id": "2", "name": Lamination.MATTE_LAMINATED}
+    processing_opts_3: OptionInfo = {"id": "3", "name": Lamination.EMBOSSED_LAMINATED}
+    processing_opts_4: OptionInfo = {"id": "4", "name": Lamination.NO_LAMINATION}
 
     # { [material_id]: List[process_opt] }
     paper_processing_map: Dict[str, List[OptionInfo]] = {
@@ -197,11 +198,15 @@ def _create_all_combinations(
     return combinations
 
 
-def _get_price(data: StickerCombination) -> Response:
+def _get_price(data: StickerCombination) -> Dict:
     url = "https://www.printpac.co.jp/contents/lineup/sticker/ajax/get_price.php"
     headers: Dict[str, str] = {
         "Accept": "application/json, text/javascript, */*; q=0.01",
         "Content-Type": "application/x-www-form-urlencoded",
+        "Origin": "https://www.printpac.co.jp",
+        "Referer": "https://www.printpac.co.jp/contents/lineup/sticker/",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "X-Requested-With": "XMLHttpRequest",
     }
     request_payload: StickerRequestPayload = {
         "c_id": _set_category_id(data["print_color_id"]),
@@ -220,7 +225,11 @@ def _get_price(data: StickerCombination) -> Response:
         data=request_payload,
     )
     if response.ok:
-        return response
+        res_data = response.json()
+        if "tbody" not in res_data:
+            print(f"failed to fetch data: {request_payload} - Error {res_data}")
+            raise RuntimeWarning("COMBINATION_NOT_EXIST")
+        return res_data
 
     else:
         print("Request failed with status code:", response.status_code)
@@ -276,7 +285,7 @@ def _crawl_sicker_prices(
             print("Progress: {}%".format((count * 10 / ten_pct)))
 
         try:
-            r: Response = _get_price(item)
+            r: Dict = _get_price(item)
             if r is None:
                 print("No data returned")
             else:
@@ -295,7 +304,7 @@ def _crawl_sicker_prices(
                         }
                 }
                 """
-                res_data = r.json()["tbody"]["body"]
+                res_data = r["tbody"]["body"]
 
                 for unit in res_data:
                     for eigyo in res_data[unit]:

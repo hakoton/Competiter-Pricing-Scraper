@@ -1,10 +1,9 @@
-from typing import Dict, Any, TypedDict
+from typing import TypedDict
 from enum import Enum
-
-from shared.interfaces import StickerSizeInfo
 
 
 class Lamination(Enum):
+    NOT_FOUND = "NOT_FOUND"
     NO_LAMINATION = "ラミネートなし"
     WHITE_PLATE = "白版追加"
     GLOSSY_LAMINATED = "つや ラミネート"
@@ -56,115 +55,11 @@ class Color(Enum):
 
 
 class ProductCategory(Enum):
-    SEAL = 1
-    STICKER = 2
-    MULTI_STICKER = 3
+    SEAL = "シール"
+    STICKER = "ステッカー"
+    MULTI_STICKER = "マルチステッカー"
 
 
 class PidAndGlueInfo(TypedDict):
     pid: int
     glue_type: Glue
-
-
-"""
-印刷用紙IDと対応する用紙IDのマッピング
-https://www.printpac.co.jp/contents/lineup/seal/js/size.js?20240612164729
-{
-    [paper_group_id]: {
-        [paper_id]: {
-            "pid": int,
-            "glue_type": Glue
-        }
-    }
-}
-"""
-SEAL_PID_TABLE: Dict[int, Dict[int, Dict[str, Any]]] = {
-    1: {152: {"pid": 100, "glue_type": Glue.REPEELABLE_GLUE}},
-    2: {154: {"pid": 204, "glue_type": Glue.ORDINARY_GLUE}},
-    3: {153: {"pid": 100, "glue_type": Glue.CORRECTION_GLUE}},
-    4: {157: {"pid": 100, "glue_type": Glue.FROZEN_FOOD_PASTE}},
-    5: {155: {"pid": 101, "glue_type": Glue.ORDINARY_GLUE}},
-    6: {158: {"pid": 222, "glue_type": Glue.ORDINARY_GLUE}},
-    7: {156: {"pid": 237, "glue_type": Glue.ORDINARY_GLUE}},
-    8: {173: {"pid": 238, "glue_type": Glue.ORDINARY_GLUE}},
-    9: {147: {"pid": 222, "glue_type": Glue.ORDINARY_GLUE}},
-    10: {148: {"pid": 1011, "glue_type": Glue.ORDINARY_GLUE}},
-    11: {159: {"pid": 106, "glue_type": Glue.ORDINARY_GLUE}},
-    12: {174: {"pid": 289, "glue_type": Glue.STRONG_ADHESIVE}},
-    13: {
-        419: {"pid": 1005, "glue_type": Glue.ORDINARY_GLUE},
-        432: {"pid": 1008, "glue_type": Glue.ORDINARY_GLUE},
-        433: {"pid": 1006, "glue_type": Glue.ORDINARY_GLUE},
-        434: {"pid": 1007, "glue_type": Glue.ORDINARY_GLUE},
-        435: {"pid": 1004, "glue_type": Glue.ORDINARY_GLUE},
-    },
-    14: {
-        175: {"pid": 252, "glue_type": Glue.STRONG_ADHESIVE},
-        176: {"pid": 1015, "glue_type": Glue.STRONG_ADHESIVE},
-        177: {"pid": 251, "glue_type": Glue.STRONG_ADHESIVE},
-        178: {"pid": 290, "glue_type": Glue.STRONG_ADHESIVE},
-        179: {"pid": 250, "glue_type": Glue.STRONG_ADHESIVE},
-    },
-    15: {
-        417: {"pid": 239, "glue_type": Glue.ORDINARY_GLUE},
-        418: {"pid": 241, "glue_type": Glue.ORDINARY_GLUE},
-    },
-    16: {194: {"pid": 1016, "glue_type": Glue.CORRECTION_GLUE}},
-    17: {192: {"pid": 101, "glue_type": Glue.CORRECTION_GLUE}},
-    18: {193: {"pid": 204, "glue_type": Glue.CORRECTION_GLUE}},
-    19: {
-        415: {"pid": 240, "glue_type": Glue.ORDINARY_GLUE},
-        416: {"pid": 242, "glue_type": Glue.ORDINARY_GLUE},
-    },
-    21: {472: {"pid": 1010, "glue_type": Glue.ORDINARY_GLUE}},
-    23: {473: {"pid": 1012, "glue_type": Glue.ORDINARY_GLUE}},
-    24: {471: {"pid": 1014, "glue_type": Glue.ORDINARY_GLUE}},
-    25: {474: {"pid": 1013, "glue_type": Glue.ORDINARY_GLUE}},
-    26: {470: {"pid": 1009, "glue_type": Glue.ORDINARY_GLUE}},
-}
-
-
-STICKER_SIZE_TABLE: Dict[str, StickerSizeInfo] = {
-    "1250": {"size_id": "69", "size_sample": {"width": "10", "height": "120"}},
-    "2500": {"size_id": "70", "size_sample": {"width": "10", "height": "200"}},
-    "5000": {"size_id": "71", "size_sample": {"width": "10", "height": "400"}},
-    "10000": {"size_id": "72", "size_sample": {"width": "10", "height": "900"}},
-    "15000": {"size_id": "73", "size_sample": {"width": "10", "height": "1400"}},
-    "22500": {"size_id": "74", "size_sample": {"width": "10", "height": "2200"}},
-    "30000": {"size_id": "75", "size_sample": {"width": "10", "height": "2900"}},
-    "40000": {"size_id": "76", "size_sample": {"width": "10", "height": "3900"}},
-    "60000": {"size_id": "77", "size_sample": {"width": "10", "height": "5900"}},
-    "90000": {"size_id": "78", "size_sample": {"width": "10", "height": "8900"}},
-}
-
-
-"""
-{
-    [material_id]: {
-        "pid": int,
-        "glue_type": Glue
-    }
-}
-"""
-STICKER_PID_TABLE: Dict[int, PidAndGlueInfo] = {
-    1: {"pid": 237, "glue_type": Glue.CORRECTION_GLUE},  # 合成紙（グレー糊）
-    2: {"pid": 224, "glue_type": Glue.ORDINARY_GLUE},  # PET
-    3: {"pid": 207, "glue_type": Glue.STRONG_ADHESIVE},  # 塩ビ（ツヤ）
-    4: {"pid": 1002, "glue_type": Glue.ORDINARY_GLUE},  # 塩ビ（マット）
-    5: {"pid": 1001, "glue_type": Glue.ORDINARY_GLUE},  # 塩ビ（ツヤlite）
-    6: {"pid": 1003, "glue_type": Glue.REPEELABLE_GLUE},  # 塩ビ（ツヤ）強粘着
-}
-
-"""
-{
-    [paper_id]: {
-        "pid": int,
-        "glue_type": Glue
-    }
-}
-"""
-MULTI_STICKER_PID_TABLE: Dict[int, PidAndGlueInfo] = {
-    404: {"pid": 207, "glue_type": Glue.STRONG_ADHESIVE},  # 塩ビ（ツヤ）
-    405: {"pid": 224, "glue_type": Glue.ORDINARY_GLUE},  # PET
-    409: {"pid": 1001, "glue_type": Glue.ORDINARY_GLUE},  # 塩ビ（ツヤlite）
-}

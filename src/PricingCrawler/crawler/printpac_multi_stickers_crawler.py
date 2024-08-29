@@ -11,7 +11,7 @@ from aws.s3 import S3_Client
 from data_convert.convert_bigquery_format import (
     convert_multi_sticker_price_for_bigquery,
 )
-from shared.constants import ProductCategory
+from shared.constants import Lamination, ProductCategory
 from shared.interfaces import (
     OptionInfo,
     MultiStickerCombination,
@@ -67,9 +67,9 @@ def _set_category_id(print_color: str) -> str:
 def _filter_process_opts_on_paper_id(
     paper_id: str,
 ) -> List[OptionInfo]:
-    processing_opts_1: OptionInfo = {"id": "1", "name": "つや ラミネート"}
-    processing_opts_2: OptionInfo = {"id": "2", "name": "マット ラミネート"}
-    processing_opts_3: OptionInfo = {"id": "3", "name": "ラミネートなし"}
+    processing_opts_1: OptionInfo = {"id": "1", "name": Lamination.GLOSSY_LAMINATED}
+    processing_opts_2: OptionInfo = {"id": "2", "name": Lamination.MATTE_LAMINATED}
+    processing_opts_3: OptionInfo = {"id": "3", "name": Lamination.NO_LAMINATION}
 
     paper_processing_map: Dict[str, List[OptionInfo]] = {
         "404": [  # 塩ビ（マット）
@@ -78,6 +78,11 @@ def _filter_process_opts_on_paper_id(
         ],
         "409": [  # 塩ビ（ツヤ）lite [用紙の厚さ薄め]
             processing_opts_1,
+            processing_opts_3,
+        ],
+        "405": [  # PET
+            processing_opts_1,
+            processing_opts_2,
             processing_opts_3,
         ],
         "default": [
@@ -196,21 +201,25 @@ def _create_all_combinations(
     return combinations
 
 
-def _get_price(data: MultiStickerCombination) -> Response:
+def _get_price(data: MultiStickerCombination) -> Dict:
     url = "https://www.printpac.co.jp/contents/lineup/sticker_multi/ajax/get_price.php"
     headers: Dict[str, str] = {
         "Accept": "application/json, text/javascript, */*; q=0.01",
         "Content-Type": "application/x-www-form-urlencoded",
+        "Origin": "https://www.printpac.co.jp",
+        "Referer": "https://www.printpac.co.jp/contents/lineup/sticker_multi/",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "X-Requested-With": "XMLHttpRequest",
     }
     request_payload: MultiStickerRequestPayload = {
         "c_id": _set_category_id(data["print_color_id"]),
+        "irokazu_id": "1",  # 固定
+        "houhou_id": "2",  # 固定
         "size_id": data["size_id"],
+        "kami_mei_id": data["paper_id"],
         "kakou1_id": _set_kakou_id(
             data["processing_opt_id"], data["half_cut_amount_id"]
         ),
-        "kami_mei_id": data["paper_id"],
-        "houhou_id": "2",  # 固定
-        "irokazu_id": "1",  # 固定
         "tax_flag": False,
     }
     response: Response = requests.post(
@@ -219,7 +228,11 @@ def _get_price(data: MultiStickerCombination) -> Response:
         data=request_payload,
     )
     if response.ok:
-        return response
+        res_data = response.json()
+        if "tbody" not in res_data:
+            print(f"failed to fetch data: {request_payload} - Error {res_data}")
+            raise RuntimeWarning("COMBINATION_NOT_EXIST")
+        return res_data
 
     else:
         print("Request failed with status code:", response.status_code)
@@ -243,7 +256,7 @@ def _crawl_multi_sicker_prices(
     )
 
     if save_combinations == True:
-        with open("multi_sticker_combination.txt", "w") as file:
+        with open("/tmp/multi_sticker_combination.txt", "w") as file:
             json.dump(combinations, file, indent=4, ensure_ascii=False)
 
     """
@@ -275,7 +288,7 @@ def _crawl_multi_sicker_prices(
             print("Progress: {}%".format((count * 10 / ten_pct)))
 
         try:
-            r: Response = _get_price(item)
+            r: Dict = _get_price(item)
             if r is None:
                 print("No data returned")
             else:
@@ -294,14 +307,14 @@ def _crawl_multi_sicker_prices(
                         }
                 }
                 """
-                res_data = r.json()["tbody"]["body"]
+                res_data = r["tbody"]["body"]
 
                 for unit in res_data:
                     for eigyo in res_data[unit]:
                         # TODO:　なぜ”１”が存在する
                         price: MultiStickerPrice = res_data[unit][eigyo]["1"]
                         price["KAKOU"] = item["processing_opt_id"]
-                        price["KAKOU_NAME"] = item["processing_opt_name"]
+                        price["KAKOU_NAME"] = item["processing_opt_name"]  # Lamination
                         price["UNIT"] = unit
                         price["SHAPE"] = "multi"
                         price["SIZE_ID"] = item["size_id"]
@@ -365,7 +378,7 @@ def doCrawl(s3_bucketname: str, s3_subdir: str) -> bool:
         )
         s3_client = S3_Client(s3_bucketname, s3_subdir)
         _crawl_multi_sicker_prices(s3_client, file_name)
-        print(f"Uploaded [{prefix+file_name}] successfully")
+        print(f"Uploaded [{file_name}] successfully")
         return True
     except Exception as e:
         print("Error - ", e)

@@ -1,4 +1,6 @@
-from typing import TypedDict, Union
+from typing import Any, TypedDict, Union
+
+from shared.constants import Lamination
 
 
 class PriceSchema(TypedDict):
@@ -24,7 +26,7 @@ class PriceSchema(TypedDict):
 
 class OptionInfo(TypedDict):
     id: str
-    name: str
+    name: Any
 
 
 class LabelSealRequestPayload(
@@ -46,12 +48,12 @@ class SealCombination(TypedDict):
             "size_id": "628",
             "paper_arr": "173",
             "kakou": "5",
+            "kakou_name": <Lamination.NO_LAMINATION: 'ラミネートなし'>,
             "tax_flag": "false",
 
             "paper_name": "透明PETシール",
             "paper_group_id": "8",
             "shape": "楕円形75mm×50mm",
-            "process": "光沢グロスPPラミネート＋白版追加"
         }
     """
 
@@ -59,19 +61,19 @@ class SealCombination(TypedDict):
     size_id: str  #
     paper_arr: str
     kakou: str
+    kakou_name: Lamination
     tax_flag: str
     # クエリに必要な情報以外の詳細
     paper_name: str
     paper_group_id: str
     shape: str
-    process: str
 
 
 class SealPrice(TypedDict):
     # サーバーからのレスポンス
     s_id: str
     price: int
-    price2: int
+    price2: Union[str, None]
     irokazu_id: str
 
     # 追加
@@ -79,7 +81,7 @@ class SealPrice(TypedDict):
     eigyo: str
     SHAPE: str
     PRINT: str
-    KAKOU: str
+    KAKOU: Lamination
     PAPER_GROUP_ID: str
     PAPER_ID: str
 
@@ -117,7 +119,7 @@ class StickerCombination(TypedDict):
     material_id: str
     processing_opt_id: str
     half_cut_amount_id: str
-    processing_opt_name: str
+    processing_opt_name: Lamination
 
 
 class StickerRequestPayload(TypedDict):
@@ -148,7 +150,7 @@ class StickerPrice(TypedDict):
     s_id: str
     t_id: str
     price: str
-    price2: str
+    price2: Union[str, None]
     tax: int
     tax2: int
 
@@ -158,7 +160,7 @@ class StickerPrice(TypedDict):
     SIZE_RANGE: str
     SHAPE: str
     KAKOU: str
-    KAKOU_NAME: str
+    KAKOU_NAME: Lamination
     MATERIAL_ID: str
     COLOR_ID: str
     HALF_CUT: str
@@ -179,7 +181,7 @@ class MultiStickerCombination(TypedDict):
     print_color_id: str
     paper_id: str
     processing_opt_id: str
-    processing_opt_name: str
+    processing_opt_name: Lamination
     half_cut_amount_id: str
 
 
@@ -199,7 +201,7 @@ class MultiStickerPrice(TypedDict):
     s_id: str
     t_id: str
     price: str
-    price2: str
+    price2: Union[str, None]
     tax: int
     tax2: int
 
@@ -209,7 +211,17 @@ class MultiStickerPrice(TypedDict):
     SHAPE: str
     SIZE_ID: str
     KAKOU: str
-    KAKOU_NAME: str
+    KAKOU_NAME: Lamination
     PAPER_ID: str
     COLOR_ID: str
     HALF_CUT: str
+
+
+class PriceDiff(TypedDict):
+    composite_key: str
+    old_list_price: int
+    new_list_price: int
+    old_actual_price: int
+    new_actual_price: int
+    old_campaign_price: int
+    new_campaign_price: int

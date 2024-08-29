@@ -8,7 +8,8 @@ from typing import Any, List, Union, Dict
 from bs4 import BeautifulSoup, NavigableString, Tag, ResultSet
 import time
 
-from shared.constants import SEAL_PID_TABLE, Lamination
+from shared.bigquery_mappings import SEAL_PID_TABLE
+from shared.constants import Lamination
 from shared.interfaces import (
     LabelSealRequestPayload,
     OptionInfo,
@@ -66,21 +67,44 @@ def _in_whitesheet_laminate_group(paper_group_id: str) -> bool:
         return True
 
 
-def _filter_pp_process_options_by_print_paper(paper_group_id: str) -> List[int]:
+def _filter_pp_process_options_by_print_paper(paper_group_id: str) -> List:
     """
     加工のオプション
     デフォルトオプション: ラミネートなし
     """
-    process_options: List[int] = [SealProcessId[Lamination.NO_LAMINATION]]
+    process_options = [
+        {
+            "id": SealProcessId[Lamination.NO_LAMINATION],
+            "name": Lamination.NO_LAMINATION,
+        }
+    ]
 
     if _in_laminate_group(paper_group_id):
-        process_options.append(SealProcessId[Lamination.GLOSSY_LAMINATED_PP])  # 2
-        process_options.append(SealProcessId[Lamination.MATTE_LAMINATED_PP])  # 3
+        process_options.append(
+            {
+                "id": SealProcessId[Lamination.GLOSSY_LAMINATED_PP],
+                "name": Lamination.GLOSSY_LAMINATED_PP,
+            }
+        )
+        process_options.append(
+            {
+                "id": SealProcessId[Lamination.MATTE_LAMINATED_PP],
+                "name": Lamination.MATTE_LAMINATED_PP,
+            }
+        )  # 3
     if _in_whitesheet_group(paper_group_id):
-        process_options.append(SealProcessId[Lamination.WHITE_PLATE])  # 4
+        process_options.append(
+            {
+                "id": SealProcessId[Lamination.WHITE_PLATE],
+                "name": Lamination.WHITE_PLATE,
+            }
+        )  # 4
     if _in_whitesheet_laminate_group(paper_group_id):
         process_options.append(
-            SealProcessId[Lamination.GLOSSY_LAMINATED_PP_WITH_WHITE_PLATE]
+            {
+                "id": SealProcessId[Lamination.GLOSSY_LAMINATED_PP_WITH_WHITE_PLATE],
+                "name": Lamination.GLOSSY_LAMINATED_PP_WITH_WHITE_PLATE,
+            }
         )  # 5
     return process_options
 
@@ -130,10 +154,6 @@ def _get_all_sizes(html: BeautifulSoup) -> List[OptionInfo]:
     """
     result: List[OptionInfo] = []
     for div in size_divs:
-        # size_name を抽出
-        size_name: str = get_first_value_by_attr(div, "alt")
-
-        # size_id を抽出
         size_id: str = ""
         size_element: Union[Tag, NavigableString, None] = div.find("input")
         if isinstance(size_element, Tag):
@@ -142,6 +162,7 @@ def _get_all_sizes(html: BeautifulSoup) -> List[OptionInfo]:
                 size_id = value
             else:
                 size_id = value[0]
+            size_name: str = get_first_value_by_attr(size_element, "data-name")
         else:
             raise ValueError("size_element is not a Tag")
 
@@ -181,37 +202,17 @@ def _get_all_print_papers(html: BeautifulSoup) -> List[OptionInfo]:
     return result
 
 
-def _get_all_paper_process_options(html: BeautifulSoup) -> Dict[str, str]:
-    """
-    {
-        [key: paper_process_option_id]: paper_process_option_name
-    }
-    結果の例:
-    {
-        '1': 'ラミネートなし',
-        '2': '光沢グロスPPラミネート',
-        '3': 'マットPPラミネート',
-        '4': '白版追加',
-        '5': '光沢グロスPPラミネート＋白版追加',
-        '6': 'マットPPラミネート＋白版追加'
-    }
-    """
-    paper_process_el = html.find_all("input", {"name": "kakou"})
-    obj = {}
-    for el in paper_process_el:
-        obj[el["value"]] = el["data-name"]
-
-    return obj
-
-
 """ SECTION ENDED """
 
 
-def _get_price(data) -> Response:
+def _get_price(data) -> Dict:
     url = "https://www.printpac.co.jp/contents/lineup/seal/ajax/get_price.php"
     headers: Dict[str, str] = {
         "Accept": "application/json, text/javascript, */*; q=0.01",
         "Content-Type": "application/x-www-form-urlencoded",
+        "Origin": "https://www.printpac.co.jp",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "X-Requested-With": "XMLHttpRequest",
     }
 
     request_payload: LabelSealRequestPayload = {
@@ -227,7 +228,11 @@ def _get_price(data) -> Response:
         data=request_payload,
     )
     if response.ok:
-        return response
+        res_data = response.json()
+        if "tbody" not in res_data:
+            print(f"failed to fetch data: {request_payload} - Error {res_data}")
+            raise RuntimeWarning("COMBINATION_NOT_EXIST")
+        return res_data
 
     else:
         print("Request failed with status code:", response.status_code)
@@ -237,32 +242,33 @@ def _get_price(data) -> Response:
 def _create_all_combinations(
     sizes: List[OptionInfo],
     print_papers: List[OptionInfo],
-    paper_process_option: Dict[str, str],
 ) -> List[SealCombination]:
     combinations: List[SealCombination] = []
     for size in sizes:
         for print_pp in print_papers:
-            possible_paper_process: List[int] = (
-                _filter_pp_process_options_by_print_paper(print_pp["id"])
+            possible_paper_process = _filter_pp_process_options_by_print_paper(
+                print_pp["id"]
             )
             for process in possible_paper_process:
                 # 一部の印刷用紙には異なるカスタマイズオプションがある
                 paper_id_arr = _set_paper_id_arr(print_pp["id"])
+                process_id: int = process["id"]
+                process_name: Lamination = process["name"]
                 if paper_id_arr is None:
                     continue
                 else:
                     for paper_id in paper_id_arr:
                         obj: SealCombination = {
-                            "category_id": str(_set_category_id(process)),
+                            "category_id": str(_set_category_id(process_id)),
                             "size_id": size["id"],
                             "paper_arr": str(paper_id),  # paper id
-                            "kakou": str(process),
+                            "kakou": str(process_id),
+                            "kakou_name": process_name,
                             "tax_flag": tax_flag,
                             # クエリに必要な情報以外の詳細
                             "paper_name": print_pp["name"],
                             "paper_group_id": print_pp["id"],
                             "shape": size["name"],
-                            "process": paper_process_option.get(str(process), "1"),
                         }
                         combinations.append(obj)
 
@@ -288,10 +294,7 @@ def _crawl_label_seal_prices(
 
     # 2. 印刷用紙（シールの紙質）を取得
     print_papers: List[OptionInfo] = _get_all_print_papers(html)
-    paper_process_option: Dict[str, str] = _get_all_paper_process_options(html)
-    combinations: List[SealCombination] = _create_all_combinations(
-        sizes, print_papers, paper_process_option
-    )
+    combinations: List[SealCombination] = _create_all_combinations(sizes, print_papers)
 
     if save_combinations == True:
         with open("seal_combination.txt", "w") as file:
@@ -328,17 +331,17 @@ def _crawl_label_seal_prices(
             print("Progress: {}%".format((count * 10 / ten_pct)))
 
         try:
-            r: Response = _get_price(item)
+            r: Dict = _get_price(item)
             if r is None:
                 print("No data returned")
             else:
-                res_data: Dict[str, Dict[str, SealPrice]] = r.json()["tbody"]["body"]
+                res_data: Dict[str, Dict[str, SealPrice]] = r["tbody"]["body"]
 
                 for unit in res_data:
                     for eigyo in res_data[unit]:
                         res_data[unit][eigyo]["SHAPE"] = item["shape"]
                         res_data[unit][eigyo]["PRINT"] = item["paper_name"]
-                        res_data[unit][eigyo]["KAKOU"] = item["process"]
+                        res_data[unit][eigyo]["KAKOU"] = item["kakou_name"]
                         res_data[unit][eigyo]["PAPER_GROUP_ID"] = item["paper_group_id"]
                         res_data[unit][eigyo]["PAPER_ID"] = item["paper_arr"]
 
@@ -400,7 +403,7 @@ def doCrawl(s3_bucketname: str, s3_subdir: str) -> bool:
         )
         s3_client = S3_Client(s3_bucketname, s3_subdir)
         _crawl_label_seal_prices(s3_client, file_name)
-        print(f"Uploaded [{prefix+file_name}] successfully")
+        print(f"Uploaded [{file_name}] successfully")
         return True
     except Exception as e:
         print("Error - ", e)
